@@ -219,11 +219,11 @@ class TrafficModel(nn.Module):
         self.rec_decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")  # decoder for speed prediction in recurrent scenario
         self.nonrec_decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")  # decoder for speed prediction in non-recurrent scenario
     
-    def __init__(self, input, target):
+    def forward(self, input, target):
         '''
         INPUTs
             input: (batch_size, in_seq_len, num_feat_dim + incident_feat_dim)
-            target: (batch_size, out_seq_len, out_dim, 2), the last dimension refers to 1. speed and 2. incident status 
+            target: (batch_size, out_seq_len + 1, out_dim, 2), the last dimension refers to 1. speed and 2. incident status 
 
         OUTPUTs
             dec_out: speed prediction, (batch_size, out_seq_len, out_dim) 
@@ -247,6 +247,13 @@ class TrafficModel(nn.Module):
         rec_weight = torch.ones(LR_out.size()) - LR_out
         dec_out = rec_out * rec_weight + nonrec_out * LR_out 
 
-        return dec_out, LR_attn_weights, rec_attn_weights, nonrec_attn_weights
+        if self.args.task == "LR":
+            return LR_out
+        elif self.args.task == "rec":
+            return rec_out
+        elif self.args.task == "nonrec":
+            return nonrec_out
+        else:
+            return dec_out, LR_attn_weights, rec_attn_weights, nonrec_attn_weights
 
 
