@@ -191,7 +191,8 @@ def create_parser():
 
 
     # Data Hyper-parameters
-    parser.add_argument('--train_ratio', type=float, default=0.7, help='Ratio of training data versus whole data')
+    parser.add_argument('--train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
+    parser.add_argument('--seed', type=int, default=42, help='Seed for random splitting')
 
     parser.add_argument('--incident_indices', type=list or tuple, help='[start_idx, end_idx], indices of categorical features (incident)')
     parser.add_argument('--incident_feat_dim', type=int, help='length of incident features')
