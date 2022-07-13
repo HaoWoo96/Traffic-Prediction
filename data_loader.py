@@ -9,13 +9,15 @@ class TrafficData(Dataset):
     def __init__(self, args):
         self.args = args  
 
-        if args.task == "base":
-            X_path = self.args.main_dir  + "/X_base.npy"  # store sequence features frequency of 5 min
-            Y_path = self.args.main_dir  + "/Y_base.npy"  # store true speed data in frequency of 5 min
-        else:
-            X_path = self.args.main_dir  + "/X.npy"  # store sequence features frequency of 5 min
-            Y_path = self.args.main_dir  + "/Y.npy"  # store true speed & incident data in frequency of 1 min  
-            
+        # if args.task == "base":
+        #     X_path = self.args.main_dir  + "/X_base.npy"  # store sequence features frequency of 5 min
+        #     Y_path = self.args.main_dir  + "/Y_base.npy"  # store true speed data in frequency of 5 min
+        # else:
+        #     X_path = self.args.main_dir  + "/X.npy"  # store sequence features frequency of 5 min
+        #     Y_path = self.args.main_dir  + "/Y.npy"  # store true speed & incident data in frequency of 1 min  
+        
+        X_path = self.args.main_dir  + "/new_X.npy"  # store sequence features frequency of 5 min
+        Y_path = self.args.main_dir  + "/new_Y.npy"  # store true speed & incident data in frequency of 1 min  
 
         self.X = torch.from_numpy(np.load(X_path))  # (29520, feat_dim)
         self.Y = torch.from_numpy(np.load(Y_path))  # (5*29520, num_seg, 2) the last dimension refers to 1. speed and 2. incident status 
