@@ -11,31 +11,34 @@ class EncoderRNN(nn.Module):
         super(EncoderRNN, self).__init__()
         self.args = args
 
-        self.incident_start, self.incident_end = args.incident_indices  # starting and ending indices of categorical features (incident)
-        self.incident_embedding = nn.Embedding(num_embeddings=args.incident_range, embedding_dim=args.incident_embed_dim)
+        # self.incident_start, self.incident_end = args.incident_indices  # starting and ending indices of categorical features (incident)
+        # self.incident_embedding = nn.Embedding(num_embeddings=args.incident_range, embedding_dim=args.incident_embed_dim)
 
-        self.gru = nn.GRU(input_size=args.in_feat_dim, hidden_size=args.hidden_dim, num_layers=args.num_layers, batch_first=True)
+        self.gru = nn.GRU(input_size=args.in_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
 
-    def forward(self, input, hidden):
+    def forward(self, x, hidden):
         '''
         INPUTs
-            input: (batch_size, in_seq_len, num_feat_dim + incident_feat_dim)
+            x: input, (batch_size, in_seq_len, in_dim)
             hidden: (num_layer, batch_size, hidden_dim)
         OUTPUTs
             output: (batch_size, in_seq_len, hidden_dim)
             hidden: (num_layer, batch_size, hidden_dim)
         '''
-        embedded_incident_feat = self.incident_embedding(input[:, :, self.incident_start:self.incident_end])  # (batch_size, in_seq_len, incident_feat_dim, incident_embed_dim)
-        embedded_incident_feat = torch.flatten(embedded_incident_feat, start_dim=-2)  # (batch_size, in_seq_len, incident_feat_dim * incident_embed_dim)
-        embedded_input = torch.cat((input[:self.incident_start], embedded_incident_feat, input[self.incident_end:]), dim=-1)  # (batch_size, in_seq_len, in_feat_dim)
-        output, hidden = self.gru(embedded_input, hidden)
+        # embedded_incident_feat = self.incident_embedding(input[:, :, self.incident_start:self.incident_end])  # (batch_size, in_seq_len, incident_feat_dim, incident_embed_dim)
+        # embedded_incident_feat = torch.flatten(embedded_incident_feat, start_dim=-2)  # (batch_size, in_seq_len, incident_feat_dim * incident_embed_dim)
+        # embedded_input = torch.cat((input[:self.incident_start], embedded_incident_feat, input[self.incident_end:]), dim=-1)  # (batch_size, in_seq_len, in_feat_dim)
+        # output, hidden = self.gru(embedded_input, hidden)
+        output, hidden = self.gru(x, hidden)
 
         return output, hidden
 
-    def initHidden(self):
-        return torch.zeros(self.args.num_layer, self.args.batch_size, self.args.hidden_size, device=self.args.device)
+    def initHidden(self, batch_size):
+        # here we supply an argument batch_size instead of using self.args.batch_size
+        # because the last batch may not have full batch_size
+        return torch.zeros(self.args.num_layer, batch_size, self.args.hidden_dim, device=self.args.device)
 
-
+# naive decoder 
 class DecoderRNN(nn.Module):
     def __init__(self, args, dec_type):
         '''
@@ -47,14 +50,12 @@ class DecoderRNN(nn.Module):
         self.args = args
         self.dec_type = dec_type
 
-        self.gru = nn.GRU(input_size=args.out_dim, hidden_size=args.hidden_dim, num_layers=args.num_layers, batch_first=True)
+        self.gru = nn.GRU(input_size=args.out_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
         
         self.out = nn.Sequential(
                 nn.Linear(args.hidden_dim, args.out_dim),
                 nn.Linear(args.out_dim, args.out_dim)
-            )
-        if dec_type == "LR":
-            self.out.append(nn.Sigmoid())
+                )
 
     def forward(self, target, hidden):
         '''
@@ -72,22 +73,22 @@ class DecoderRNN(nn.Module):
         if use_teacher_forcing:
             # Teacher forcing: Feed the target as the next input
             for i in range(self.args.out_seq_len-1):
-                input = target[:, i, :].unsqueeze(1)  # Teacher forcing, (batch_size, 1, out_dim)
-                temp_out, hidden = self.gru(input, hidden)  # seq len is 1 for each gru operation
+                x = target[:, i, :].unsqueeze(1)  # Teacher forcing, (batch_size, 1, out_dim)
+                temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
                 output.append(self.out(temp_out))
         else:
             # Without teacher forcing: use its own predictions as the next input
-            input = target[:, 0, :].unsqueeze(1)
+            x = target[:, 0, :].unsqueeze(1)
             for i in range(self.args.out_seq_len-1):
-                temp_out, hidden = self.gru(input, hidden)  # seq len is 1 for each gru operation
+                temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
                 temp_out = self.out(temp_out) 
                 output.append(temp_out)
 
-                input = temp_out.detach()  # use prediction as next input, detach from history
+                x = temp_out.detach()  # use prediction as next input, detach from history
         
-        return torch.stack(tensors=output, dim=1), hidden
+        return torch.cat(tensors=output, dim=1), hidden
 
-
+# decoder with attention
 class AttnDecoderRNN(nn.Module):
     def __init__(self, args, dec_type):
         '''
@@ -101,17 +102,16 @@ class AttnDecoderRNN(nn.Module):
         # self.dropout_p = dropout_p
         # self.dropout = nn.Dropout(self.dropout_p)
 
-        self.attn_weight = nn.Linear(args.out_dim + args.hidden_dim, self.args.in_seq_len)
+        self.attn_weight = nn.Linear(args.out_dim + args.hidden_dim, args.in_seq_len)
         self.attn_combine = nn.Linear(args.out_dim + args.hidden_dim, args.out_dim)
 
-        self.gru = nn.GRU(input_size=args.out_dim, hidden_size=args.hidden_dim, num_layers=args.num_layers, batch_first=True)
+        self.gru = nn.GRU(input_size=args.out_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
         
         self.out = nn.Sequential(
-                nn.Linear(args.dec_hidden_dim, args.out_dim),
+                nn.Linear(args.hidden_dim, args.out_dim),
                 nn.Linear(args.out_dim, args.out_dim)
-            )
-        if dec_type == "LR":
-            self.out.append(nn.Sigmoid())
+                )
+    
 
     def forward(self, target, hidden, enc_output):
         '''
@@ -133,46 +133,46 @@ class AttnDecoderRNN(nn.Module):
         if use_teacher_forcing:
             # Teacher forcing: Feed the target as the next input
             for i in range(self.args.out_seq_len):
-                input = target[:, i, :].unsqueeze(1)  # Teacher forcing, (batch_size, 1, out_dim)
+                x = target[:, i, :].unsqueeze(1)  # Teacher forcing, (batch_size, 1, out_dim)
 
                 # extract the top most hidden tensor, concat it with target input, and compute attention weights
-                attn_weight = F.softmax(self.attn_weight(torch.cat(tensors=(input, hidden[-1, :, :].unsqueeze(1)), dim=2)), dim=2)  # (batch_size, 1, in_seq_len)
+                attn_weight = F.softmax(self.attn_weight(torch.cat(tensors=(x, hidden[-1, :, :].unsqueeze(1)), dim=2)), dim=2)  # (batch_size, 1, in_seq_len)
                 attn_weights.append(attn_weight)
                 
                 # apply attention weights to encoder output
                 weighted_enc_output = torch.bmm(attn_weight, enc_output)  # (batch_size, 1, hidden_dim)
                 
                 # concat weighted encoder output with target input 
-                input = self.attn_combine(torch.cat(tensors=(input, weighted_enc_output), dim=2))  # (batch_size, 1, out_dim)
-                input = F.relu(input)
+                x = self.attn_combine(torch.cat(tensors=(x, weighted_enc_output), dim=2))  # (batch_size, 1, out_dim)
+                x = F.relu(x)
 
-                temp_out, hidden = self.gru(input, hidden)  # seq len is 1 for each gru operation
+                temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
                 output.append(self.out(temp_out))
         else:
             # Without teacher forcing: use its own predictions as the next input
-            input = target[:, 0, :].unsqueeze(1)
+            x = target[:, 0, :].unsqueeze(1)  # (batch_size, 1, out_dim)
             for i in range(self.args.out_seq_len):
 
                 # extract the top most hidden tensor, concat it with target input, and compute attention weights
-                attn_weight = F.softmax(self.attn_weight(torch.cat(tensors=(input, hidden[-1, :, :].unsqueeze(1)), dim=2)), dim=2)  # (batch_size, 1, in_seq_len)
+                attn_weight = F.softmax(self.attn_weight(torch.cat(tensors=(x, hidden[-1, :, :].unsqueeze(1)), dim=2)), dim=2)  # (batch_size, 1, in_seq_len)
                 attn_weights.append(attn_weight)
                 
                 # apply attention weights to encoder output
                 weighted_enc_output = torch.bmm(attn_weight, enc_output)  # (batch_size, 1, hidden_dim)
                 
                 # concat weighted encoder output with target input 
-                input = self.attn_combine(torch.cat(tensors=(input, weighted_enc_output), dim=2))  # (batch_size, 1, out_dim)
-                input = F.relu(input)
+                x = self.attn_combine(torch.cat(tensors=(x, weighted_enc_output), dim=2))  # (batch_size, 1, out_dim)
+                x = F.relu(x)
 
-                temp_out, hidden = self.gru(input, hidden)  # seq len is 1 for each gru operation
+                temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
 
                 temp_out = self.out(temp_out) 
                 output.append(temp_out)
 
-                input = temp_out.detach()  # use prediction as next input, detach from history
+                x = temp_out.detach()  # use prediction as next input, detach from history
 
 
-        return torch.stack(tensors=output, dim=1), hidden, torch.stack(tensors=attn_weights, dim=1)
+        return torch.cat(tensors=output, dim=1), hidden, torch.cat(tensors=attn_weights, dim=1)
 
 
 #############################
@@ -188,10 +188,10 @@ class TrafficSeq2Seq(nn.Module):
         self.encoder = EncoderRNN(args=args)
         self.decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")
     
-    def forward(self, input, target):
+    def forward(self, x, target):
         '''
         INPUTs
-            input: (batch_size, in_seq_len, num_feat_dim + incident_feat_dim)
+            x: input, (batch_size, in_seq_len, indim)
             target: (batch_size, out_seq_len, out_dim), for TrafficSeq2Seq, the entries in the last dimension is speed data
 
         OUTPUTs
@@ -200,11 +200,11 @@ class TrafficSeq2Seq(nn.Module):
             attn_weights: (batch_size, out_seq_len, in_seq_len)
         '''
         # pass into encoder
-        ini_hidden = self.encoder.initHidden()
-        enc_out, enc_hidden = self.encoder(input, ini_hidden)
+        ini_hidden = self.encoder.initHidden(batch_size = x.size(0))
+        enc_out, enc_hidden = self.encoder(x, ini_hidden)
 
         # pass into decoder
-        dec_out, dec_hidden, attn_weights = self.decoder(target, enc_hidden ,enc_out)
+        dec_out, dec_hidden, attn_weights = self.decoder(target[..., 0], enc_hidden ,enc_out)
 
         return dec_out, attn_weights
 
@@ -212,26 +212,26 @@ class TrafficSeq2Seq(nn.Module):
 class TrafficModel(nn.Module):
     def __init__(self, args):
         super(TrafficModel, self).__init__()
-
+        self.args = args
         self.encoder = EncoderRNN(args=args)
 
         self.LR_decoder = AttnDecoderRNN(args=args, dec_type="LR")  # decoder for incident prediction (logistic regression)
         self.rec_decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")  # decoder for speed prediction in recurrent scenario
         self.nonrec_decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")  # decoder for speed prediction in non-recurrent scenario
     
-    def forward(self, input, target):
+    def forward(self, x, target):
         '''
         INPUTs
-            input: (batch_size, in_seq_len, num_feat_dim + incident_feat_dim)
+            x: input, (batch_size, in_seq_len, num_feat_dim + incident_feat_dim)
             target: (batch_size, out_seq_len + 1, out_dim, 2), the last dimension refers to 1. speed and 2. incident status 
 
         OUTPUTs
-            dec_out: speed prediction, (batch_size, out_seq_len, out_dim) 
+            weighted_pred: speed prediction, (batch_size, out_seq_len, out_dim), entries along last dimension are speed predictions
             xxx_attn_weights: (batch_size, out_seq_len, in_seq_len)
         '''
         # pass into encoder
-        ini_hidden = self.encoder.initHidden()
-        enc_out, enc_hidden = self.encoder(input, ini_hidden)
+        ini_hidden = self.encoder.initHidden(batch_size=x.size(0))
+        enc_out, enc_hidden = self.encoder(x, ini_hidden)
 
         # pass into decoder
         '''
@@ -245,15 +245,15 @@ class TrafficModel(nn.Module):
 
         # generate final speed prediction
         rec_weight = torch.ones(LR_out.size()) - LR_out
-        dec_out = rec_out * rec_weight + nonrec_out * LR_out 
+        weighted_pred = rec_out * rec_weight + nonrec_out * LR_out 
 
         if self.args.task == "LR":
-            return LR_out
+            return LR_out, LR_attn_weights
         elif self.args.task == "rec":
-            return rec_out
+            return rec_out, rec_attn_weights
         elif self.args.task == "nonrec":
-            return nonrec_out
+            return nonrec_out, nonrec_attn_weights
         else:
-            return dec_out, LR_attn_weights, rec_attn_weights, nonrec_attn_weights
+            return weighted_pred, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
 
 

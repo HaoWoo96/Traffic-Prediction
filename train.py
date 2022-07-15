@@ -16,24 +16,24 @@ def train(train_dataloader, model, opt, epoch, args, writer):
     epoch_loss = 0
 
     for i, batch in enumerate(train_dataloader):
-        input, target = batch
+        x, target, _ = batch
 
-        input = input.to(args.device)  # (batch_size, in_seq_len, numeric_feat_dim + incident_feat_dim)
+        x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
 
-        # Forward Pass
-        pred = model(input, target)
-
-        # Compute Loss
+        # Forward Pass and Compute Loss
         if args.task == "LR":
-            criterion = torch.nn.BCELoss()
+            pred, _ = model(x, target) # the second element returned are weights, which are only useful during inference.
+
+            criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
             loss = criterion(pred, target[:, 1:, :, 1])
+        
         else:
+            pred, _ = model(x, target) # the second element returned are weights, which are only useful during inference.
+
             criterion = torch.nn.MSELoss()
-            if args.task == "base":
-                loss = criterion(pred, target[:, 1:, :])
-            else:
-                loss = criterion(pred, target[:, 1:, :, 0])
+            loss = criterion(pred, target[:, 1:, :, 0])
+        
         epoch_loss += loss
 
         # Backward and Optimize
@@ -44,7 +44,7 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         # Logging
         writer.add_scalar("train_loss", loss.item(), step+i)
     
-    return epoch_loss
+    return epoch_loss/len(train_dataloader)
 
 
 def test(test_dataloader, model, epoch, args, writer):
@@ -54,55 +54,58 @@ def test(test_dataloader, model, epoch, args, writer):
     epoch_loss = 0
 
     for i, batch in enumerate(test_dataloader):
-        input, target = batch
+        x, target, _ = batch
 
-        input = input.to(args.device)  # (batch_size, in_seq_len, numeric_feat_dim + incident_feat_dim)
+        x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
 
-        # Make Prediction
         with torch.no_grad():
-            pred = model(input, target)
 
-            # Compute Loss
+            # Make Prediction and Compute Loss
             if args.task == "LR":
-                criterion = torch.nn.BCELoss()
+                pred, _ = model(x, target)
+
+                criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
                 loss = criterion(pred, target[:, 1:, :, 1])
+            
             else:
+                pred, _ = model(x, target) 
+
                 criterion = torch.nn.MSELoss()
-                if args.task == "base":
-                    loss = criterion(pred, target[:, 1:, :])
-                else:
-                    loss = criterion(pred, target[:, 1:, :, 0])
+                loss = criterion(pred, target[:, 1:, :, 0])
             epoch_loss += loss
 
         # Logging
         writer.add_scalar("test_loss", loss.item(), step+i)
     
-    return epoch_loss
+    return epoch_loss/len(test_dataloader)
 
 
 def main(args):
     """
-    train encoder and LR_decoder of TrafficModel
+    train model, evaluate on test data, and save checkpoints
     """
     # Create Directories
     create_dir(args.checkpoint_dir)
-    create_dir('./logs')
+    create_dir(args.log_dir)
+
 
     # Tensorboard Logger
-    writer = SummaryWriter('./logs/{}_{}'.format(args.task, args.exp_name))
+    writer = SummaryWriter('{}/{}'.format(args.log_dir,args.exp_name))
+
 
     # Initialize Model
-    if args.task != "baseline":
+    if args.task != "base":
         model = TrafficModel(args)
     else:
         model = TrafficSeq2Seq(args)
     
+
     # Load Checkpoint 
     if (args.task == "rec" or args.task == "nonrec") and not args.load_checkpoint:
-        # in "rec" and "nonrec", if checkpoint is not specified, 
+        # in "rec" and "nonrec" tasks, if checkpoint is not specified, 
         # then we need to initialize the model with best checkpoint from "LR"
-        args.checkpoint_dir = "LR"
+        args.checkpoint_dir = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR"
         args.load_checkpoint = "best"
 
     if args.load_checkpoint:
@@ -110,55 +113,80 @@ def main(args):
         with open(model_path, 'rb') as f:
             state_dict = torch.load(f, map_location=args.device)
             model.load_state_dict(state_dict)
-        print ("successfully loaded checkpoint from {}".format(model_path))
+        print (f"successfully loaded checkpoint from {model_path}")
 
     if args.task == "finetune" and not args.load_checkpoint:
-        # in "finetune", if checkpoint is not specified,
-        # then we need to initialize teh model with best checkpoint from "LR" (encoder & LR_decoder), "rec" (rec_decoder) and "nonrec" (nonrec_decoder)
-        LR_model_path = "LR/best.pt"
-        rec_model_path = "rec/best.pt"
-        nonrec_model_path = "nonrec/best.pt"
+        # in "finetune" task, if checkpoint is not specified,
+        # then we need to initialize the model with best checkpoint from "LR" (encoder & LR_decoder), "rec" (rec_decoder) and "nonrec" (nonrec_decoder)
+        LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best.pt"
+        rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best.pt"
+        nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best.pt"
 
         # load state dict partially to initialize corresponding modules of TrafficModel
-        # =============== TO DO ===================
-        # with open(model_path, 'rb') as f:
-        #     state_dict = torch.load(f, map_location=args.device)
-        #     model.load_state_dict(state_dict)
-        # print ("successfully loaded checkpoint from {}".format(model_path))
-    
+        with open(LR_model_path, 'rb') as f_LR, open(rec_model_path, 'rb') as f_rec, open(nonrec_model_path, 'rb') as f_nonrec:
+
+            # load state dict 
+            state_dict_LR = torch.load(f_LR, map_location=args.device)
+            state_dict_rec = torch.load(f_rec, map_location=args.device)
+            state_dict_nonrec = torch.load(f_nonrec, map_location=args.device)
+
+            # retain corresponding modules only 
+            enc_dec_lr_state_d = {k:v for k, v in state_dict_LR.items() if "LR" in k or "encoder" in k}
+            dec_rec_state_d = {k:v for k, v in state_dict_rec.items() if "rec" in k and "nonrec" not in k}
+            dec_nonrec_state_d = {k:v for k, v in state_dict_nonrec.items() if "nonrec" in k}
+
+            # load state dict of corresponding modules 
+            model.load_state_dict(enc_dec_lr_state_d, strict=False)
+            model.load_state_dict(dec_rec_state_d, strict=False)
+            model.load_state_dict(dec_nonrec_state_d, strict = False)
+
+        print (f"successfully loaded checkpoint from \
+                {LR_model_path} \n\
+                {rec_model_path} \n\
+                {nonrec_model_path} ")
+
+
     # Freeze Module 
     if args.task == "LR":
+        # in "LR" task, freeze decoders for recurrent and nonrecurrent prediction
         model.rec_decoder.requires_grad_(False)
         model.nonrec_decoder.requires_grad_(False)
+
     elif args.task == "rec":
+        # in "rec" task, freeze everything except recurrent decoder
         model.encoder.requires_grad_(False)
         model.LR_decoder.requires_grad_(False)
         model.nonrec_decoder.requires_grad_(False)
+
     elif args.task == "nonrec":
+        # in "nonrec" task, freeze everythign except nonrecurrent decoder
         model.encoder.requires_grad_(False)
         model.LR_decoder.requires_grad_(False)
         model.rec_decoder.requires_grad_(False)
+
 
     # Optimizer
     opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
 
+
     # Dataloader for Training & Testing
     train_dataloader, test_dataloader = get_data_loader(args=args)
-
     print ("successfully loaded data")
 
+
+    # Training, Testing & Checkpoint Saving
+    print ("======== start training for {} task ========".format(args.task))
+    print ("(check tensorboard for plots of experiment {}/{})".format(args.log_dir, args.exp_name))
+    
     best_loss = float("inf")
 
-    print ("======== start training for {} task ========".format(args.task))
-    print ("(check tensorboard for plots of experiment logs/{}_{})".format(args.task, args.exp_name))
-    
     for epoch in range(args.num_epochs):
 
         # Train
         train_epoch_loss = train(train_dataloader, model, opt, epoch, args, writer)
         test_epoch_loss = test(test_dataloader, model, epoch, args, writer)
 
-        print ("epoch: {}   train loss: {:.4f}   test loss: {:.4f}".format(epoch, train_epoch_loss, test_epoch_loss))
+        print ("epoch: {}   train loss (per batch): {:.4f}   test loss (per batch): {:.4f}".format(epoch, train_epoch_loss, test_epoch_loss))
         
         # Save Model Checkpoint Regularly
         if epoch % args.checkpoint_every == 0:
@@ -166,7 +194,7 @@ def main(args):
             save_checkpoint(epoch=epoch, model=model, args=args, best=False)
 
         # Save Best Model Checkpoint
-        if (test_epoch_loss >= best_loss):
+        if (test_epoch_loss <= best_loss):
             best_loss = test_epoch_loss
             print ("best model saved at epoch {}".format(epoch))
             save_checkpoint(epoch=epoch, model=model, args=args, best=True)
@@ -182,11 +210,11 @@ def create_parser():
 
     # Model hyper-parameters
     parser.add_argument('--num_layer', type=int, default=2, help='Number of stacked GRUs in encoder and decoder')
-    parser.add_argument('--hidden_num', type=int, default=256, help='Hidden dimension in encoder and decoder')
+    parser.add_argument('--hidden_dim', type=int, default=256, help='Hidden dimension in encoder and decoder')
     parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='threshold of teacher forcing')
 
     parser.add_argument('--in_seq_len', type=int, default=7, help='sequence length of input')
-    parser.add_argument('--out_seq_len', type=int, default=5, help='sequence length of output')
+    parser.add_argument('--out_seq_len', type=int, default=6, help='sequence length of output')
     parser.add_argument('--out_freq', type=int, default=5, help='frequency of output data')
 
 
@@ -194,24 +222,41 @@ def create_parser():
     parser.add_argument('--train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
     parser.add_argument('--seed', type=int, default=42, help='Seed for random splitting')
 
-    parser.add_argument('--incident_indices', type=list or tuple, help='[start_idx, end_idx], indices of categorical features (incident)')
-    parser.add_argument('--incident_feat_dim', type=int, help='length of incident features')
-    parser.add_argument('--incident_range', type=int, default=3, help='3 by default ("0", "1", "2")')
-    parser.add_argument('--incident_embed_dim', type=int, help='dimension of embeded incident features')
-    parser.add_argument('--conf_indices', type=list or tuple, help='[start_idx, end_idx], indices of categorical (ordinal) features ()')
+    parser.add_argument('--in_dim', type=int, default = 1403, help='dimension of input')
+    parser.add_argument('--out_dim', type=int, default=78, help=' dimension of output i.e. number of segments (78 by default)')
 
-    parser.add_argument('--numeric_feat_dim', type=int, help='length of numercial features')
-    parser.add_argument('--in_feat_dim', type=int, help='numeric_feat_dim + incident_feat_dim * incident_embed_dim')
-    parser.add_argument('--out_dim', type=int, default=162, help=' dimension of output i.e. number of segments (162 by default)')
+    parser.add_argument('--density_indices', type=list or tuple, default = [0, 233], help='[start_idx, end_idx], indices of density features')
+    parser.add_argument('--truck_spd_indices', type=list or tuple, default = [233, 466], help='[start_idx, end_idx], indices of truck speed features')
+    parser.add_argument('--pv_spd_indices', type=list or tuple, default = [466, 699], help='[start_idx, end_idx], indices of personal vehicle speed features')
+    parser.add_argument('--incident_indices', type=list or tuple, default = [1166, 1382], help='[start_idx, end_idx], indices of incident features')
+    
+    parser.add_argument('--use_density', type=bool, default = True, help='use density features or not')
+    parser.add_argument('--use_truck_spd', type=bool, default = True, help='use truck speed features or not')
+    parser.add_argument('--use_pv_spd', type=bool, default = True, help='use personal vehicle speed features or not')
+    
+    # fow now we don't use embedding for incident and density, as they are ordinal variables and are already embedded in new_X.npy
+    # therefore, we don't use the following arguments 
+
+    # parser.add_argument('--in_feat_dim', type=int, help='numeric_feat_dim + incident_feat_dim * incident_embed_dim')
+    # parser.add_argument('--incident_feat_dim', type=int, help='length of incident features')
+    # parser.add_argument('--incident_range', type=int, default=3, help='3 by default ("0", "1", "2")')
+    # parser.add_argument('--incident_embed_dim', type=int, help='dimension of embeded incident features')
+    #parser.add_argument('--numeric_feat_dim', type=int, help='length of numercial features')
 
 
     # Training Hyper-parameters
+    '''
+    TASKs:
+        1. "LR": call train_LR() for logistic regression, train encoder and LR_decoder
+        2. "rec": call train_rec() for speed prediction, freeze encoder, train rec_decoder
+        3. "nonrec": call_train_nonrec() for speed prediction, freeze encoder, train nonrec_decoder
+        4. "finetune": call_finetune() for speed prediction, load checkpoint of encoder, LR_decoder, rec_decoder and nonrec_decoder, and finetune them together
+        5. “base": 
+            - train TrafficSeq2Seq model
+            - input: no new features
+            - output: in 5-min frequency
+    '''
     parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'base'")
-    # 1. "LR": call train_LR() for logistic regression, train encoder and LR_decoder
-    # 2. "rec": call train_rec() for speed prediction, freeze encoder, train rec_decoder
-    # 3. "nonrec": call_train_nonrec() for speed prediction, freeze encoder, train nonrec_decoder
-    # 4. "finetune": call_finetune() for speed prediction, load checkpoint of encoder, LR_decoder, rec_decoder and nonrec_decoder, and finetune them together
-    # 5. “base": train TrafficSeq2Seq model 
 
     parser.add_argument('--num_epochs', type=int, default=200, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
@@ -222,7 +267,8 @@ def create_parser():
 
 
     # Directories and Checkpoint/Sample Iterations
-    parser.add_argument('--main_dir', type=str, default='./data/')
+    parser.add_argument('--data_dir', type=str, default='./data')
+    parser.add_argument('--log_dir', type=str, default='./logs')
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
     parser.add_argument('--checkpoint_every', type=int , default=10)
 
@@ -234,7 +280,31 @@ def create_parser():
 if __name__ == '__main__':
     parser = create_parser()
     args = parser.parse_args()
+
     args.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
-    args.checkpoint_dir = args.checkpoint_dir+"/"+args.task # checkpoint directory is task specific
+
+    # For reproducibility
+    torch.manual_seed(args.seed)
+
+    # Task specific directories
+    args.log_dir += f"/{args.task}"
+    args.checkpoint_dir += f"/{args.task}" 
+    args.exp_name += f"_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}" 
+
+
+    # Change input dimension based on task type and whether to use new features or not
+    if args.task == "base":
+        args.use_density = False
+        args.use_truck_spd = False
+        args.use_pv_spd = False
+    
+    if not args.use_density:
+        args.in_dim -= 233
+    
+    if not args.use_truck_spd:
+        args.in_dim -= 233
+    
+    if not args.use_pv_spd:
+        args.in_dim -= 233
 
     main(args)
