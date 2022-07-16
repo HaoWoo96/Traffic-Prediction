@@ -2,6 +2,8 @@ import numpy as np
 import argparse
 import torch
 import torch.optim as optim
+import logging
+import sys
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -90,9 +92,24 @@ def main(args):
     create_dir(args.log_dir)
 
 
-    # 2. Tensorboard Logger
+    # 2. Logger for Tensorboard and Logging
     writer = SummaryWriter('{}/{}'.format(args.log_dir,args.exp_name))
+    logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training.log", filemode="w", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
 
+    # log experiment and data information
+    logging.info('{:*^100}'.format(" COMMAND LINE "))
+    logging.info(" ".join(sys.argv) + "\n")
+
+    logging.info('{:*^100}'.format(" EXPERIMENT INFORMATION "))
+    logging.info(f"Task: {args.task}")
+    logging.info(f"Experiment Name: {args.exp_name}")
+    logging.info(f"Number of Epochs: {args.num_epochs}, Learning Rate: {args.lr}, Batch Size: {args.batch_size} \n")
+
+    logging.info('{:*^100}'.format(" DATA INFORMATION "))
+    logging.info(f"Use Density: {args.use_density}; Use Truck Speed: {args.use_truck_spd}; Use Personal Vehicle Speed: {args.use_pv_spd}")
+    logging.info(f"Input Sequence Length: {args.in_seq_len}; Output Sequence Lenth: {args.out_seq_len}; Output Frequency: {args.out_freq} \n")
+
+    logging.info('{:*^100}'.format(" LOADING PROGRESS "))
 
     # 3. Initialize Model
     if args.task != "base":
@@ -107,7 +124,7 @@ def main(args):
         with open(model_path, 'rb') as f:
             state_dict = torch.load(f, map_location=args.device)
             model.load_state_dict(state_dict)
-        print (f"successfully loaded checkpoint from {model_path}")
+        logging.info(f"successfully loaded checkpoint from {model_path}")
 
     else:
         # in "rec" and "nonrec" tasks, if checkpoint is not specified, 
@@ -117,7 +134,7 @@ def main(args):
             with open(model_path, 'rb') as f:
                 state_dict = torch.load(f, map_location=args.device)
                 model.load_state_dict(state_dict)
-            print (f"successfully loaded checkpoint from {model_path}")
+            logging.info(f"successfully loaded checkpoint from {model_path}")
 
         # in "finetune" task, if checkpoint is not specified,
         # then we need to initialize the model with best checkpoint from "LR" (encoder & LR_decoder), "rec" (rec_decoder) and "nonrec" (nonrec_decoder)
@@ -144,7 +161,7 @@ def main(args):
                 model.load_state_dict(dec_rec_state_d, strict=False)
                 model.load_state_dict(dec_nonrec_state_d, strict = False)
 
-            print (f"successfully loaded checkpoint from \
+            logging.info(f"successfully loaded checkpoint from \
                     {LR_model_path} \n\
                     {rec_model_path} \n\
                     {nonrec_model_path} ")
@@ -175,21 +192,20 @@ def main(args):
 
     # 7. Dataloader for Training & Testing
     train_dataloader, test_dataloader = get_data_loader(args=args)
-    print ("successfully loaded data")
+    logging.info(f"successfully loaded data \n")
+    
+
 
 
     # 8. Training, Testing & Checkpoint Saving
 
-    # print messages
+    # Logging
     if args.load_checkpoint_epoch > 0:
-        print ("="*10 \
-            + " resume training for task {} from epoch {} (in_seq_len: {}, out_seq_len: {}, out_freq: {}) ".format(args.task, args.load_checkpoint_epoch, args.in_seq_len, args.out_seq_len, args.out_freq) \
-            + "="*10)
+        logging.info('{:=^100}'.format(" Training Resumes from Epoch {} ".format(args.load_checkpoint_epoch)))
     else:
-        print ("="*10 \
-            + " start training for task {} (in_seq_len: {}, out_seq_len: {}, out_freq: {}) ".format(args.task, args.in_seq_len, args.out_seq_len, args.out_freq) \
-            + "="*10)
-    print ("(check tensorboard for plots of experiment {}/{})".format(args.log_dir, args.exp_name))
+        logging.info('{:=^100}'.format(" Training Starts "))
+    logging.info("please check tensorboard for plots of experiment {}/{}".format(args.log_dir, args.exp_name))
+    logging.info("please check logging messages at {}/{}/training.log".format(args.log_dir, args.exp_name))
     
     best_loss = float("inf")
     best_epoch = -1
@@ -200,21 +216,21 @@ def main(args):
         train_epoch_loss = train(train_dataloader, model, opt, epoch, args, writer)
         test_epoch_loss = test(test_dataloader, model, epoch, args, writer)
 
-        print ("epoch: {}   train loss (per batch): {:.4f}   test loss (per batch): {:.4f}".format(epoch, train_epoch_loss, test_epoch_loss))
+        logging.info("epoch: {}   train loss (per batch): {:.4f}   test loss (per batch): {:.4f}".format(epoch, train_epoch_loss, test_epoch_loss))
         
         # Save Model Checkpoint Regularly
         if epoch % args.checkpoint_every == 0:
-            print ("checkpoint saved at epoch {}".format(epoch))
+            logging.info("checkpoint saved at epoch {}".format(epoch))
             save_checkpoint(epoch=epoch, model=model, args=args, best=False)
 
         # Save Best Model Checkpoint
         if (test_epoch_loss <= best_loss):
             best_loss = test_epoch_loss
             best_epoch = epoch
-            print ("best model saved at epoch {}".format(epoch))
+            logging.info("best model saved at epoch {}".format(epoch))
             save_checkpoint(epoch=epoch, model=model, args=args, best=True)
 
-    print ("======== training completes ({} epochs trained, best epoch at {} with test loss (per batch) = {:.4f}) ========".format(args.num_epochs, best_epoch, best_loss))
+    logging.info('{:=^100}'.format(" Training Completes ({} epochs trained, best epoch at {} with test loss per batch = {:.4f}) ".format(args.task, args.exp_name, args.num_epochs, best_epoch, best_loss)))
 
 
 def create_parser():
@@ -297,27 +313,23 @@ def create_parser():
 if __name__ == '__main__':
     parser = create_parser()
     args = parser.parse_args()
-
     args.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+
 
     # For reproducibility
     torch.manual_seed(args.seed)
 
+
     # Task specific directories
     args.log_dir += f"/{args.task}"
     args.checkpoint_dir += f"/{args.task}" 
-    args.exp_name += f"_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}" 
+    args.exp_name += f"_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}" 
 
     if args.load_checkpoint_epoch > 0:
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
 
 
     # Change input dimension based on task type and whether to use new features or not
-    if args.task == "base":
-        args.use_density = False
-        args.use_truck_spd = False
-        args.use_pv_spd = False
-    
     if not args.use_density:
         args.in_dim -= 233
     
