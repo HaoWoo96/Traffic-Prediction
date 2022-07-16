@@ -36,8 +36,6 @@ class TrafficData(Dataset):
         self.X = self.all_X[:, args.pv_spd_indices[1]:]  # 29520, 704
         for i, j in new_feat_indices:
             self.X = torch.cat([self.all_X[:, i:j], self.X], axis=1)
-
-            
         
     def __len__(self):
         return self.X.size(0) 
@@ -102,15 +100,25 @@ def get_data_loader(args):
         nonrec_X_path = f"{args.data_dir}/nonrec_X_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
         nonrec_Y_path = f"{args.data_dir}/nonrec_Y_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
 
+        # create and save recurrent & non-recurrent data by splitting the whole dataset into 
+        if not os.path.exists(rec_X_path):
+            whole_dloader = DataLoader(dataset=whole_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+            rec_X = torch.cat([x[recurrent==True] for x, y, recurrent in whole_dloader])
+            rec_Y = torch.cat([y[recurrent==True] for x, y, recurrent in whole_dloader])
+            print("rec_X", rec_X.size(), "rec_Y", rec_Y.size())
+            torch.save(rec_X, rec_X_path)
+            torch.save(rec_Y, rec_Y_path)
+
+            nonrec_X = torch.cat([x[recurrent==False] for x, y, recurrent in whole_dloader])
+            nonrec_Y = torch.cat([y[recurrent==False] for x, y, recurrent in whole_dloader])
+            print("nonrec_X", nonrec_X.size(), "nonrec_Y", nonrec_Y.size())
+            torch.save(nonrec_X, nonrec_X_path)
+            torch.save(nonrec_Y, nonrec_Y_path)
+        
+        # load recurrent / nonrecurrent dataset and create dataloader
         if args.task == "rec":
-            if not os.path.exists(rec_X_path):
-                rec_X = torch.cat([x[recurrent==True] for x, y, recurrent in train_dloader])
-                rec_Y = torch.cat([y[recurrent==True] for x, y, recurrent in train_dloader])
-                torch.save(rec_X, rec_X_path)
-                torch.save(rec_Y, rec_Y_path)
-            else:
-                rec_X = torch.load(rec_X_path)
-                rec_Y = torch.load(rec_Y_path)
+            rec_X = torch.load(rec_X_path)
+            rec_Y = torch.load(rec_Y_path)
             
             rec_dataset = TrafficDataByCase(rec_X, rec_Y)
 
@@ -126,14 +134,8 @@ def get_data_loader(args):
             return rec_train_dloader, rec_test_dloader
         
         else:
-            if not os.path.exists(nonrec_X_path):
-                nonrec_X = torch.cat([x[recurrent==False] for x, y, recurrent in train_dloader])
-                nonrec_Y = torch.cat([y[recurrent==False] for x, y, recurrent in train_dloader])
-                torch.save(nonrec_X, nonrec_X_path)
-                torch.save(nonrec_Y, nonrec_Y_path)
-            else:
-                nonrec_X = torch.load(nonrec_X_path)
-                nonrec_Y = torch.load(nonrec_Y_path)
+            nonrec_X = torch.load(nonrec_X_path)
+            nonrec_Y = torch.load(nonrec_Y_path)
             
             nonrec_dataset = TrafficDataByCase(nonrec_X, nonrec_Y)
 

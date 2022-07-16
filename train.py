@@ -85,29 +85,23 @@ def main(args):
     """
     train model, evaluate on test data, and save checkpoints
     """
-    # Create Directories
+    # 1. Create Directories
     create_dir(args.checkpoint_dir)
     create_dir(args.log_dir)
 
 
-    # Tensorboard Logger
+    # 2. Tensorboard Logger
     writer = SummaryWriter('{}/{}'.format(args.log_dir,args.exp_name))
 
 
-    # Initialize Model
+    # 3. Initialize Model
     if args.task != "base":
         model = TrafficModel(args)
     else:
         model = TrafficSeq2Seq(args)
-    
 
-    # Load Checkpoint 
-    if (args.task == "rec" or args.task == "nonrec") and not args.load_checkpoint:
-        # in "rec" and "nonrec" tasks, if checkpoint is not specified, 
-        # then we need to initialize the model with best checkpoint from "LR"
-        args.checkpoint_dir = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR"
-        args.load_checkpoint = "best"
 
+    # 4. Load Checkpoint 
     if args.load_checkpoint:
         model_path = "{}/{}.pt".format(args.checkpoint_dir, args.load_checkpoint)
         with open(model_path, 'rb') as f:
@@ -115,38 +109,48 @@ def main(args):
             model.load_state_dict(state_dict)
         print (f"successfully loaded checkpoint from {model_path}")
 
-    if args.task == "finetune" and not args.load_checkpoint:
+    else:
+        # in "rec" and "nonrec" tasks, if checkpoint is not specified, 
+        # then we need to initialize the model with best checkpoint from "LR"
+        if (args.task == "rec" or args.task == "nonrec"):
+            model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}.pt".format(args.exp_name)
+            with open(model_path, 'rb') as f:
+                state_dict = torch.load(f, map_location=args.device)
+                model.load_state_dict(state_dict)
+            print (f"successfully loaded checkpoint from {model_path}")
+
         # in "finetune" task, if checkpoint is not specified,
         # then we need to initialize the model with best checkpoint from "LR" (encoder & LR_decoder), "rec" (rec_decoder) and "nonrec" (nonrec_decoder)
-        LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best.pt"
-        rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best.pt"
-        nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best.pt"
+        elif args.task == "finetune":
+            LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}.pt".format(args.exp_name)
+            rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best_{}.pt".format(args.exp_name)
+            nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best{}.pt".format(args.exp_name)
 
-        # load state dict partially to initialize corresponding modules of TrafficModel
-        with open(LR_model_path, 'rb') as f_LR, open(rec_model_path, 'rb') as f_rec, open(nonrec_model_path, 'rb') as f_nonrec:
+            # load state dict partially to initialize corresponding modules of TrafficModel
+            with open(LR_model_path, 'rb') as f_LR, open(rec_model_path, 'rb') as f_rec, open(nonrec_model_path, 'rb') as f_nonrec:
+                
+                # load state dict 
+                state_dict_LR = torch.load(f_LR, map_location=args.device)
+                state_dict_rec = torch.load(f_rec, map_location=args.device)
+                state_dict_nonrec = torch.load(f_nonrec, map_location=args.device)
 
-            # load state dict 
-            state_dict_LR = torch.load(f_LR, map_location=args.device)
-            state_dict_rec = torch.load(f_rec, map_location=args.device)
-            state_dict_nonrec = torch.load(f_nonrec, map_location=args.device)
+                # retain corresponding modules only 
+                enc_dec_lr_state_d = {k:v for k, v in state_dict_LR.items() if "LR" in k or "encoder" in k}
+                dec_rec_state_d = {k:v for k, v in state_dict_rec.items() if "rec" in k and "nonrec" not in k}
+                dec_nonrec_state_d = {k:v for k, v in state_dict_nonrec.items() if "nonrec" in k}
 
-            # retain corresponding modules only 
-            enc_dec_lr_state_d = {k:v for k, v in state_dict_LR.items() if "LR" in k or "encoder" in k}
-            dec_rec_state_d = {k:v for k, v in state_dict_rec.items() if "rec" in k and "nonrec" not in k}
-            dec_nonrec_state_d = {k:v for k, v in state_dict_nonrec.items() if "nonrec" in k}
+                # load state dict of corresponding modules 
+                model.load_state_dict(enc_dec_lr_state_d, strict=False)
+                model.load_state_dict(dec_rec_state_d, strict=False)
+                model.load_state_dict(dec_nonrec_state_d, strict = False)
 
-            # load state dict of corresponding modules 
-            model.load_state_dict(enc_dec_lr_state_d, strict=False)
-            model.load_state_dict(dec_rec_state_d, strict=False)
-            model.load_state_dict(dec_nonrec_state_d, strict = False)
-
-        print (f"successfully loaded checkpoint from \
-                {LR_model_path} \n\
-                {rec_model_path} \n\
-                {nonrec_model_path} ")
+            print (f"successfully loaded checkpoint from \
+                    {LR_model_path} \n\
+                    {rec_model_path} \n\
+                    {nonrec_model_path} ")
 
 
-    # Freeze Module 
+    # 5. Freeze Module 
     if args.task == "LR":
         # in "LR" task, freeze decoders for recurrent and nonrecurrent prediction
         model.rec_decoder.requires_grad_(False)
@@ -165,22 +169,32 @@ def main(args):
         model.rec_decoder.requires_grad_(False)
 
 
-    # Optimizer
+    # 6. Optimizer
     opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
 
 
-    # Dataloader for Training & Testing
+    # 7. Dataloader for Training & Testing
     train_dataloader, test_dataloader = get_data_loader(args=args)
     print ("successfully loaded data")
 
 
-    # Training, Testing & Checkpoint Saving
-    print ("======== start training for {} task ========".format(args.task))
+    # 8. Training, Testing & Checkpoint Saving
+
+    # print messages
+    if args.load_checkpoint_epoch > 0:
+        print ("="*10 \
+            + " resume training for task {} from epoch {} (in_seq_len: {}, out_seq_len: {}, out_freq: {}) ".format(args.task, args.load_checkpoint_epoch, args.in_seq_len, args.out_seq_len, args.out_freq) \
+            + "="*10)
+    else:
+        print ("="*10 \
+            + " start training for task {} (in_seq_len: {}, out_seq_len: {}, out_freq: {}) ".format(args.task, args.in_seq_len, args.out_seq_len, args.out_freq) \
+            + "="*10)
     print ("(check tensorboard for plots of experiment {}/{})".format(args.log_dir, args.exp_name))
     
     best_loss = float("inf")
+    best_epoch = -1
 
-    for epoch in range(args.num_epochs):
+    for epoch in range(max(0, args.load_checkpoint_epoch), args.num_epochs):
 
         # Train
         train_epoch_loss = train(train_dataloader, model, opt, epoch, args, writer)
@@ -196,10 +210,11 @@ def main(args):
         # Save Best Model Checkpoint
         if (test_epoch_loss <= best_loss):
             best_loss = test_epoch_loss
+            best_epoch = epoch
             print ("best model saved at epoch {}".format(epoch))
             save_checkpoint(epoch=epoch, model=model, args=args, best=True)
 
-    print ("======== training completes ========")
+    print ("======== training completes ({} epochs trained, best epoch at {} with test loss (per batch) = {:.4f}) ========".format(args.num_epochs, best_epoch, best_loss))
 
 
 def create_parser():
@@ -258,7 +273,7 @@ def create_parser():
     '''
     parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'base'")
 
-    parser.add_argument('--num_epochs', type=int, default=200, help='Number of epochs for training')
+    parser.add_argument('--num_epochs', type=int, default=500, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of threads to use for the DataLoader.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate (default 0.001)')
@@ -269,10 +284,12 @@ def create_parser():
     # Directories and Checkpoint/Sample Iterations
     parser.add_argument('--data_dir', type=str, default='./data')
     parser.add_argument('--log_dir', type=str, default='./logs')
+
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
     parser.add_argument('--checkpoint_every', type=int , default=10)
 
     parser.add_argument('--load_checkpoint', type=str, default='', help='Name of the checkpoint')
+    parser.add_argument('--load_checkpoint_epoch', type=int, default=-1, help='Epoch of the checkpoint')
 
     return parser
 
@@ -290,6 +307,9 @@ if __name__ == '__main__':
     args.log_dir += f"/{args.task}"
     args.checkpoint_dir += f"/{args.task}" 
     args.exp_name += f"_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}" 
+
+    if args.load_checkpoint_epoch > 0:
+        args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
 
 
     # Change input dimension based on task type and whether to use new features or not
