@@ -11,6 +11,7 @@ from models import TrafficSeq2Seq, TrafficModel
 from data_loader import get_data_loader
 from utils import save_checkpoint, create_dir
 
+
 def train(train_dataloader, model, opt, epoch, args, writer):
 
     model.train()
@@ -19,20 +20,16 @@ def train(train_dataloader, model, opt, epoch, args, writer):
 
     for i, batch in enumerate(train_dataloader):
         x, target, _ = batch
-
         x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
 
         # Forward Pass and Compute Loss
         if args.task == "LR":
             pred, _ = model(x, target) # the second element returned are weights, which are only useful during inference.
-
             criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
             loss = criterion(pred, target[:, 1:, :, 1])
-        
         else:
             pred, _ = model(x, target) # the second element returned are weights, which are only useful during inference.
-
             criterion = torch.nn.MSELoss()
             loss = criterion(pred, target[:, 1:, :, 0])
         
@@ -57,22 +54,17 @@ def test(test_dataloader, model, epoch, args, writer):
 
     for i, batch in enumerate(test_dataloader):
         x, target, _ = batch
-
         x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
 
         with torch.no_grad():
-
             # Make Prediction and Compute Loss
             if args.task == "LR":
                 pred, _ = model(x, target)
-
                 criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
                 loss = criterion(pred, target[:, 1:, :, 1])
-            
             else:
                 pred, _ = model(x, target) 
-
                 criterion = torch.nn.MSELoss()
                 loss = criterion(pred, target[:, 1:, :, 0])
             epoch_loss += loss
@@ -90,7 +82,6 @@ def main(args):
     # 1. Create Directories
     create_dir(args.checkpoint_dir)
     create_dir(args.log_dir)
-
 
     # 2. Logger for Tensorboard and Logging
     writer = SummaryWriter('{}/{}'.format(args.log_dir,args.exp_name))
@@ -117,7 +108,6 @@ def main(args):
     else:
         model = TrafficSeq2Seq(args)
 
-
     # 4. Load Checkpoint 
     if args.load_checkpoint:
         model_path = "{}/{}.pt".format(args.checkpoint_dir, args.load_checkpoint)
@@ -125,7 +115,6 @@ def main(args):
             state_dict = torch.load(f, map_location=args.device)
             model.load_state_dict(state_dict)
         logging.info(f"successfully loaded checkpoint from {model_path}")
-
     else:
         # in "rec" and "nonrec" tasks, if checkpoint is not specified, 
         # then we need to initialize the model with best checkpoint from "LR"
@@ -166,39 +155,30 @@ def main(args):
                     {rec_model_path} \n\
                     {nonrec_model_path} ")
 
-
     # 5. Freeze Module 
     if args.task == "LR":
         # in "LR" task, freeze decoders for recurrent and nonrecurrent prediction
         model.rec_decoder.requires_grad_(False)
         model.nonrec_decoder.requires_grad_(False)
-
     elif args.task == "rec":
         # in "rec" task, freeze everything except recurrent decoder
         model.encoder.requires_grad_(False)
         model.LR_decoder.requires_grad_(False)
         model.nonrec_decoder.requires_grad_(False)
-
     elif args.task == "nonrec":
         # in "nonrec" task, freeze everythign except nonrecurrent decoder
         model.encoder.requires_grad_(False)
         model.LR_decoder.requires_grad_(False)
         model.rec_decoder.requires_grad_(False)
 
-
     # 6. Optimizer
     opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
-
 
     # 7. Dataloader for Training & Testing
     train_dataloader, test_dataloader = get_data_loader(args=args)
     logging.info(f"successfully loaded data \n")
-    
-
-
 
     # 8. Training, Testing & Checkpoint Saving
-
     # Logging
     if args.load_checkpoint_epoch > 0:
         logging.info('{:=^100}'.format(" Training Resumes from Epoch {} ".format(args.load_checkpoint_epoch)))
@@ -211,7 +191,6 @@ def main(args):
     best_epoch = -1
 
     for epoch in range(max(0, args.load_checkpoint_epoch), args.num_epochs):
-
         # Train
         train_epoch_loss = train(train_dataloader, model, opt, epoch, args, writer)
         test_epoch_loss = test(test_dataloader, model, epoch, args, writer)
@@ -239,7 +218,7 @@ def create_parser():
     """
     parser = argparse.ArgumentParser()
 
-    # Model hyper-parameters
+    # 1. Model hyper-parameters
     parser.add_argument('--num_layer', type=int, default=2, help='Number of stacked GRUs in encoder and decoder')
     parser.add_argument('--hidden_dim', type=int, default=256, help='Hidden dimension in encoder and decoder')
     parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='threshold of teacher forcing')
@@ -248,8 +227,7 @@ def create_parser():
     parser.add_argument('--out_seq_len', type=int, default=6, help='sequence length of output')
     parser.add_argument('--out_freq', type=int, default=5, help='frequency of output data')
 
-
-    # Data Hyper-parameters
+    # 2. Data Hyper-parameters
     parser.add_argument('--train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
     parser.add_argument('--seed', type=int, default=42, help='Seed for random splitting')
 
@@ -267,15 +245,13 @@ def create_parser():
     
     # fow now we don't use embedding for incident and density, as they are ordinal variables and are already embedded in new_X.npy
     # therefore, we don't use the following arguments 
-
     # parser.add_argument('--in_feat_dim', type=int, help='numeric_feat_dim + incident_feat_dim * incident_embed_dim')
     # parser.add_argument('--incident_feat_dim', type=int, help='length of incident features')
     # parser.add_argument('--incident_range', type=int, default=3, help='3 by default ("0", "1", "2")')
     # parser.add_argument('--incident_embed_dim', type=int, help='dimension of embeded incident features')
-    #parser.add_argument('--numeric_feat_dim', type=int, help='length of numercial features')
+    # parser.add_argument('--numeric_feat_dim', type=int, help='length of numercial features')
 
-
-    # Training Hyper-parameters
+    # 3. Training Hyper-parameters
     '''
     TASKs:
         1. "LR": call train_LR() for logistic regression, train encoder and LR_decoder
@@ -296,8 +272,7 @@ def create_parser():
 
     parser.add_argument('--exp_name', type=str, default="exp", help='Name of the experiment')
 
-
-    # Directories and Checkpoint/Sample Iterations
+    # 4. Directories and Checkpoint/Sample Iterations
     parser.add_argument('--data_dir', type=str, default='./data')
     parser.add_argument('--log_dir', type=str, default='./logs')
 
@@ -315,19 +290,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
-
     # For reproducibility
     torch.manual_seed(args.seed)
-
 
     # Task specific directories
     args.log_dir += f"/{args.task}"
     args.checkpoint_dir += f"/{args.task}" 
     args.exp_name += f"_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}" 
-
     if args.load_checkpoint_epoch > 0:
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
-
 
     # Change input dimension based on task type and whether to use new features or not
     if not args.use_density:
