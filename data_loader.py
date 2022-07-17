@@ -95,23 +95,21 @@ def get_data_loader(args):
     
     # create special dataloader for recurrent & non-recurrent prediction
     if args.task == "rec" or args.task == "nonrec":
-        rec_X_path = f"{args.data_dir}/rec_X_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
-        rec_Y_path = f"{args.data_dir}/rec_Y_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
-        nonrec_X_path = f"{args.data_dir}/nonrec_X_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
-        nonrec_Y_path = f"{args.data_dir}/nonrec_Y_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
+        rec_X_path = f"{args.data_dir}/rec_X_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
+        rec_Y_path = f"{args.data_dir}/rec_Y_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
+        nonrec_X_path = f"{args.data_dir}/nonrec_X_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
+        nonrec_Y_path = f"{args.data_dir}/nonrec_Y_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
 
         # create and save recurrent & non-recurrent data by splitting the whole dataset into 
         if not os.path.exists(rec_X_path):
             whole_dloader = DataLoader(dataset=whole_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
             rec_X = torch.cat([x[recurrent==True] for x, y, recurrent in whole_dloader])
             rec_Y = torch.cat([y[recurrent==True] for x, y, recurrent in whole_dloader])
-            print("rec_X", rec_X.size(), "rec_Y", rec_Y.size())
             torch.save(rec_X, rec_X_path)
             torch.save(rec_Y, rec_Y_path)
 
             nonrec_X = torch.cat([x[recurrent==False] for x, y, recurrent in whole_dloader])
             nonrec_Y = torch.cat([y[recurrent==False] for x, y, recurrent in whole_dloader])
-            print("nonrec_X", nonrec_X.size(), "nonrec_Y", nonrec_Y.size())
             torch.save(nonrec_X, nonrec_X_path)
             torch.save(nonrec_Y, nonrec_Y_path)
         

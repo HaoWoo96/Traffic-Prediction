@@ -85,7 +85,10 @@ def main(args):
 
     # 2. Logger for Tensorboard and Logging
     writer = SummaryWriter('{}/{}'.format(args.log_dir,args.exp_name))
-    logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training.log", filemode="w", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
+    if args.load_checkpoint_epoch > 0:
+        logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training_resume.log", filemode="w", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
+    else:
+        logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training.log", filemode="w", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
 
     # log experiment and data information
     logging.info('{:*^100}'.format(" COMMAND LINE "))
@@ -130,7 +133,7 @@ def main(args):
         elif args.task == "finetune":
             LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}.pt".format(args.exp_name)
             rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best_{}.pt".format(args.exp_name)
-            nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best{}.pt".format(args.exp_name)
+            nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best_{}.pt".format(args.exp_name)
 
             # load state dict partially to initialize corresponding modules of TrafficModel
             with open(LR_model_path, 'rb') as f_LR, open(rec_model_path, 'rb') as f_rec, open(nonrec_model_path, 'rb') as f_nonrec:
@@ -209,7 +212,7 @@ def main(args):
             logging.info("best model saved at epoch {}".format(epoch))
             save_checkpoint(epoch=epoch, model=model, args=args, best=True)
 
-    logging.info('{:=^100}'.format(" Training Completes ({} epochs trained, best epoch at {} with test loss per batch = {:.4f}) ".format(args.task, args.exp_name, args.num_epochs, best_epoch, best_loss)))
+    logging.info('{:=^100}'.format(" Training Completes ({} epochs trained, best epoch at {} with test loss per batch = {:.4f}) ".format(args.num_epochs, best_epoch, best_loss)))
 
 
 def create_parser():
@@ -239,9 +242,9 @@ def create_parser():
     parser.add_argument('--pv_spd_indices', type=list or tuple, default = [466, 699], help='[start_idx, end_idx], indices of personal vehicle speed features')
     parser.add_argument('--incident_indices', type=list or tuple, default = [1166, 1382], help='[start_idx, end_idx], indices of incident features')
     
-    parser.add_argument('--use_density', type=bool, default = True, help='use density features or not')
-    parser.add_argument('--use_truck_spd', type=bool, default = True, help='use truck speed features or not')
-    parser.add_argument('--use_pv_spd', type=bool, default = True, help='use personal vehicle speed features or not')
+    parser.add_argument('--use_density', action="store_true", help='use density features or not')
+    parser.add_argument('--use_truck_spd', action="store_true", help='use truck speed features or not')
+    parser.add_argument('--use_pv_spd', action="store_true", help='use personal vehicle speed features or not')
     
     # fow now we don't use embedding for incident and density, as they are ordinal variables and are already embedded in new_X.npy
     # therefore, we don't use the following arguments 
