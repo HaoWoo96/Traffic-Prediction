@@ -268,7 +268,7 @@ def create_parser():
     '''
     parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'base'")
 
-    parser.add_argument('--num_epochs', type=int, default=500, help='Number of epochs for training')
+    parser.add_argument('--num_epochs', type=int, default=401, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of threads to use for the DataLoader.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate (default 0.001)')
