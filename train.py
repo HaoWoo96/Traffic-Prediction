@@ -25,13 +25,17 @@ def train(train_dataloader, model, opt, epoch, args, writer):
 
         # Forward Pass and Compute Loss
         if args.task == "LR":
-            pred, _ = model(x, target) # the second element returned are weights, which are only useful during inference.
+            # the second element returned are attention weights, which won't be used here but will be visualized during inference.
+            pred, _ = model(x, target)
             criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
             loss = criterion(pred, target[:, 1:, :, 1])
         else:
-            pred, _ = model(x, target) # the second element returned are weights, which are only useful during inference.
-            criterion = torch.nn.MSELoss()
-            loss = criterion(pred, target[:, 1:, :, 0])
+            if args.task == "finetune":
+                # the second element returned are incident predictions (logits), the third element returned are attention weights, which won't be used here but will be visualized during inference.
+                pred, inc_pred, _ = model(x, target) 
+            else:
+                # the second element returned are attention weights, which won't be used here but will be visualized during inference.
+                pred, _ = model(x, target)
         
         epoch_loss += loss
 
@@ -64,7 +68,10 @@ def test(test_dataloader, model, epoch, args, writer):
                 criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
                 loss = criterion(pred, target[:, 1:, :, 1])
             else:
-                pred, _ = model(x, target) 
+                if args.task == "finetune":
+                    pred, inc_pred, _ = model(x, target) 
+                else:
+                    pred, _ = model(x, target)
                 criterion = torch.nn.MSELoss()
                 loss = criterion(pred, target[:, 1:, :, 0])
             epoch_loss += loss

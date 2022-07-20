@@ -221,7 +221,7 @@ def main(args):
     logging.info(f"RMSE - all: {lo_all_root_mse},  recurrent: {lo_rec_root_mse},  nonrecurrent: {lo_nonrec_root_mse}")
     logging.info(f"MAPE - all: {lo_all_mean_ape},  recurrent: {lo_rec_mean_ape},  nonrecurrent: {lo_nonrec_mean_ape}")
 
-    logging.info('{:=^100}'.format(" Baseline 1 - Historical Average "))
+    logging.info('{:=^100}'.format(" Baseline 3 - Historical Average "))
     logging.info("RMSE - 5.104168739538521")
     logging.info("MAPE - 0.12455292714700887")
 
