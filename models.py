@@ -254,6 +254,6 @@ class TrafficModel(nn.Module):
         elif self.args.task == "nonrec":
             return nonrec_out, nonrec_attn_weights
         else:
-            return weighted_pred, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
+            return weighted_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
 
 

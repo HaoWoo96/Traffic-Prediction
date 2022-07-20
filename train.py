@@ -83,7 +83,7 @@ def main(args):
     create_dir(args.checkpoint_dir)
     create_dir(args.log_dir)
 
-    # 2. Logger for Tensorboard and Logging
+    # 2. Set up Logger for Tensorboard and Logging
     writer = SummaryWriter('{}/{}'.format(args.log_dir,args.exp_name))
     if args.load_checkpoint_epoch > 0:
         logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training_resume.log", filemode="w", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
@@ -174,14 +174,14 @@ def main(args):
         model.LR_decoder.requires_grad_(False)
         model.rec_decoder.requires_grad_(False)
 
-    # 6. Optimizer
+    # 6. Set up Optimizer
     opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
 
-    # 7. Dataloader for Training & Testing
+    # 7. Load Data for Training & Testing
     train_dataloader, test_dataloader = get_data_loader(args=args)
     logging.info(f"successfully loaded data \n")
 
-    # 8. Training, Testing & Checkpoint Saving
+    # 8. Train, Test & Save Checkpoints
     # Logging
     if args.load_checkpoint_epoch > 0:
         logging.info('{:=^100}'.format(" Training Resumes from Epoch {} ".format(args.load_checkpoint_epoch)))
@@ -289,6 +289,8 @@ def create_parser():
 
 
 if __name__ == '__main__':
+    
+    # 1. Modify Arguments
     parser = create_parser()
     args = parser.parse_args()
     args.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
@@ -313,4 +315,6 @@ if __name__ == '__main__':
     if not args.use_pv_spd:
         args.in_dim -= 233
 
+
+    # 2. Execute Training Pipeline
     main(args)

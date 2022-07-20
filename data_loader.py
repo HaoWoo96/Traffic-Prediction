@@ -10,13 +10,6 @@ class TrafficData(Dataset):
     """
     def __init__(self, args):
         self.args = args  
-
-        # if args.task == "base":
-        #     X_path = self.args.main_dir  + "/X_base.npy"  # store sequence features frequency of 5 min
-        #     Y_path = self.args.main_dir  + "/Y_base.npy"  # store true speed data in frequency of 5 min
-        # else:
-        #     X_path = self.args.main_dir  + "/X.npy"  # store sequence features frequency of 5 min
-        #     Y_path = self.args.main_dir  + "/Y.npy"  # store true speed & incident data in frequency of 1 min  
         
         X_path = f"{self.args.data_dir}/new_X.npy"  # store sequence features frequency of 5 min
         Y_path = f"{self.args.data_dir}/new_Y.npy"  # store true speed & incident data in frequency of 1 min  
@@ -80,7 +73,7 @@ class TrafficDataByCase(Dataset):
 
 def get_data_loader(args):
     """
-    Creates training and test data loaders
+    Creates training and testing data loaders for model training
     """
     whole_dataset = TrafficData(args=args)
 
@@ -150,3 +143,12 @@ def get_data_loader(args):
 
     return train_dloader, test_dloader
 
+
+def get_inference_data_loader(args):
+    """
+    Creates data loader for model inference
+    """
+    whole_dataset = TrafficData(args=args)
+    whole_dloader = DataLoader(dataset=whole_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
+
+    return whole_dloader
