@@ -244,7 +244,7 @@ class TrafficModel(nn.Module):
         nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], enc_hidden, enc_out)
 
         # generate final speed prediction
-        rec_weight = torch.ones(LR_out.size()) - LR_out
+        rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
         weighted_pred = rec_out * rec_weight + nonrec_out * LR_out 
 
         if self.args.task == "LR":
