@@ -114,9 +114,9 @@ def main(args):
 
     # 3. Initialize Model
     if args.task != "base":
-        model = TrafficModel(args)
+        model = TrafficModel(args).to(args.device)
     else:
-        model = TrafficSeq2Seq(args)
+        model = TrafficSeq2Seq(args).to(args.device)
 
     # 4. Load Checkpoint 
     if args.load_checkpoint:
