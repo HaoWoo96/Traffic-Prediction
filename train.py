@@ -39,15 +39,32 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         else: 
             criterion = torch.nn.MSELoss()
             if args.gt_type == "tmc":
+                # register hook to only consider certain segments for the computation of loss
+                if args.task in {"rec", "nonrec"}:
+                    if args.task == "rec":
+                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) < 1).float())
+                    else:
+                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) >= 1).float())
                 loss = criterion(pred, target[:, 1:, :, :3].reshape(batch_size, args.out_seq_len, 3*args.out_dim))
             else:
+                # register hook to only consider certain segments for the computation of loss
+                if args.task in {"rec", "nonrec"}:
+                    if args.task == "rec":
+                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] < 1).float())
+                    else:
+                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] >= 1).float())
                 loss = criterion(pred, target[:, 1:, :, 0])
+
         epoch_loss += loss
 
         # Backward and Optimize
         opt.zero_grad()
         loss.backward()
         opt.step()
+
+        # remove hook if needed
+        if args.task in {"rec", "nonrec"}:
+            h.remove()
 
         # Logging
         writer.add_scalar("train_loss", loss.item(), step+i)
@@ -83,10 +100,28 @@ def test(test_dataloader, model, epoch, args, writer):
             else: 
                 criterion = torch.nn.MSELoss()
                 if args.gt_type == "tmc":
+                    # register hook to only consider certain segments for the computation of loss
+                    if args.task in {"rec", "nonrec"}:
+                        if args.task == "rec":
+                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) < 1).float())
+                        else:
+                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) >= 1).float())
                     loss = criterion(pred, target[:, 1:, :, :3].reshape(batch_size, args.out_seq_len, 3*args.out_dim))
                 else:
+                    # register hook to only consider certain segments for the computation of loss
+                    if args.task in {"rec", "nonrec"}:
+                        if args.task == "rec":
+                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] < 1).float())
+                        else:
+                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] >= 1).float())
                     loss = criterion(pred, target[:, 1:, :, 0])
+
             epoch_loss += loss
+
+            # remove hook if needed
+            if args.task in {"rec", "nonrec"}:
+                h.remove()
+
 
         # Logging
         writer.add_scalar("test_loss", loss.item(), step+i)
