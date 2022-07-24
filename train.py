@@ -100,28 +100,11 @@ def test(test_dataloader, model, epoch, args, writer):
             else: 
                 criterion = torch.nn.MSELoss()
                 if args.gt_type == "tmc":
-                    # register hook to only consider certain segments for the computation of loss
-                    if args.task in {"rec", "nonrec"}:
-                        if args.task == "rec":
-                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) < 1).float())
-                        else:
-                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) >= 1).float())
                     loss = criterion(pred, target[:, 1:, :, :3].reshape(batch_size, args.out_seq_len, 3*args.out_dim))
                 else:
-                    # register hook to only consider certain segments for the computation of loss
-                    if args.task in {"rec", "nonrec"}:
-                        if args.task == "rec":
-                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] < 1).float())
-                        else:
-                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] >= 1).float())
                     loss = criterion(pred, target[:, 1:, :, 0])
 
             epoch_loss += loss
-
-            # remove hook if needed
-            if args.task in {"rec", "nonrec"}:
-                h.remove()
-
 
         # Logging
         writer.add_scalar("test_loss", loss.item(), step+i)
@@ -340,7 +323,7 @@ def create_parser():
     parser.add_argument('--num_epochs', type=int, default=401, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of threads to use for the DataLoader.')
-    parser.add_argument('--lr', type=float, default=0.0005, help='Learning rate (default 0.001)')
+    parser.add_argument('--lr', type=float, default=0.0003, help='Learning rate (default 0.001)')
 
     parser.add_argument('--exp_name', type=str, default="exp", help='Name of the experiment')
 
