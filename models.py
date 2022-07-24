@@ -13,8 +13,11 @@ class EncoderRNN(nn.Module):
 
         # self.incident_start, self.incident_end = args.incident_indices  # starting and ending indices of categorical features (incident)
         # self.incident_embedding = nn.Embedding(num_embeddings=args.incident_range, embedding_dim=args.incident_embed_dim)
-
-        self.gru = nn.GRU(input_size=args.in_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
+        self.input_processing = nn.Sequential(
+                nn.Dropout(args.dropout_prob),
+                nn.Linear(args.in_dim, 2*args.hidden_dim)
+                )
+        self.gru = nn.GRU(input_size=2*args.hidden_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
 
     def forward(self, x, hidden):
         '''
@@ -29,7 +32,8 @@ class EncoderRNN(nn.Module):
         # embedded_incident_feat = torch.flatten(embedded_incident_feat, start_dim=-2)  # (batch_size, in_seq_len, incident_feat_dim * incident_embed_dim)
         # embedded_input = torch.cat((input[:self.incident_start], embedded_incident_feat, input[self.incident_end:]), dim=-1)  # (batch_size, in_seq_len, in_feat_dim)
         # output, hidden = self.gru(embedded_input, hidden)
-        output, hidden = self.gru(x, hidden)
+        processed_input = self.input_processing(x)
+        output, hidden = self.gru(processed_input, hidden)
 
         return output, hidden
 
@@ -99,17 +103,21 @@ class AttnDecoderRNN(nn.Module):
         super(AttnDecoderRNN, self).__init__()
         self.args = args
 
-        # self.dropout_p = dropout_p
         # self.dropout = nn.Dropout(self.dropout_p)
+        out_dim = args.out_dim
 
-        self.attn_weight = nn.Linear(args.out_dim + args.hidden_dim, args.in_seq_len)
-        self.attn_combine = nn.Linear(args.out_dim + args.hidden_dim, args.out_dim)
+        # for TMC speed prediction, model should output 3*out_dim results (all/truck/personal vehicle)
+        if args.gt_type == "tmc" and dec_type != "LR":
+            out_dim = 3*args.out_dim
 
-        self.gru = nn.GRU(input_size=args.out_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
+        self.attn_weight = nn.Linear(out_dim + args.hidden_dim, args.in_seq_len)
+        self.attn_combine = nn.Linear(out_dim + args.hidden_dim, out_dim)
+
+        self.gru = nn.GRU(input_size=out_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
         
         self.out = nn.Sequential(
-                nn.Linear(args.hidden_dim, args.out_dim),
-                nn.Linear(args.out_dim, args.out_dim)
+                nn.Linear(args.hidden_dim, out_dim),
+                nn.Linear(out_dim, out_dim)
                 )
     
 
@@ -185,6 +193,7 @@ class TrafficSeq2Seq(nn.Module):
     '''
     def __init__(self, args):
         super(TrafficSeq2Seq, self).__init__()
+        self.args = args
         self.encoder = EncoderRNN(args=args)
         self.decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")
     
@@ -199,14 +208,19 @@ class TrafficSeq2Seq(nn.Module):
             dec_hidden: (num_layer, batch_size, hidden_dim)
             attn_weights: (batch_size, out_seq_len, in_seq_len)
         '''
+        batch_size = x.size(0)
+
         # pass into encoder
-        ini_hidden = self.encoder.initHidden(batch_size = x.size(0))
+        ini_hidden = self.encoder.initHidden(batch_size = batch_size)
         enc_out, enc_hidden = self.encoder(x, ini_hidden)
 
         # pass into decoder
-        dec_out, dec_hidden, attn_weights = self.decoder(target[..., 0], enc_hidden ,enc_out)
+        if self.args.gt_type == "tmc":
+            dec_out, dec_hidden, attn_weights = self.decoder(target[..., :3].reshape(batch_size, self.args.out_seq_len+1, self.args.out_dim*3), enc_hidden ,enc_out)
+        else:
+            dec_out, dec_hidden, attn_weights = self.decoder(target[..., 0], enc_hidden ,enc_out)
 
-        return dec_out, attn_weights
+        return dec_out, dec_hidden, attn_weights
 
 
 class TrafficModel(nn.Module):
@@ -226,11 +240,13 @@ class TrafficModel(nn.Module):
             target: (batch_size, out_seq_len + 1, out_dim, 2), the last dimension refers to 1. speed and 2. incident status 
 
         OUTPUTs
-            weighted_pred: speed prediction, (batch_size, out_seq_len, out_dim), entries along last dimension are speed predictions
+            speed_pred: speed prediction, (batch_size, out_seq_len, out_dim), entries along last dimension are speed predictions
             xxx_attn_weights: (batch_size, out_seq_len, in_seq_len)
         '''
+        batch_size = x.size(0)
+
         # pass into encoder
-        ini_hidden = self.encoder.initHidden(batch_size=x.size(0))
+        ini_hidden = self.encoder.initHidden(batch_size=batch_size)
         enc_out, enc_hidden = self.encoder(x, ini_hidden)
 
         # pass into decoder
@@ -239,21 +255,40 @@ class TrafficModel(nn.Module):
         xxx_dec_hidden: (num_layer, batch_size, hidden_dim)
         xxx_attn_weights: (batch_size, out_seq_len, in_seq_len)
         '''
-        LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 1], enc_hidden, enc_out)
-        rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], enc_hidden, enc_out)
-        nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], enc_hidden, enc_out)
+        if self.args.gt_type == "tmc":
+            LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 3], enc_hidden, enc_out)
+            rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., :3].reshape(batch_size, self.args.out_seq_len+1, self.args.out_dim*3), enc_hidden, enc_out)
+            nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., :3].reshape(batch_size, self.args.out_seq_len+1, self.args.out_dim*3), enc_hidden, enc_out)
+            
+            # generate final speed prediction
+            if self.args.use_expectation:
+                rec_weight = torch.ones(LR_out.repeat(1,1,3).size()).to(self.args.device) - LR_out.repeat(1,1,3)
+                speed_pred = rec_out * rec_weight + nonrec_out * LR_out.repeat(1,1,3) 
+            else:
 
-        # generate final speed prediction
-        rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-        weighted_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                speed_pred = rec_out * (LR_out.repeat(1,1,3) <= self.args.inc_threshold) + nonrec_out * (LR_out.repeat(1,1,3) > self.args.inc_threshold)
+       
+        else:
+            LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 1], enc_hidden, enc_out)
+            rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], enc_hidden, enc_out)
+            nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], enc_hidden, enc_out)
+
+            # generate final speed prediction
+            if self.args.use_expectation:
+                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
+                speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+            else:
+                speed_pred = rec_out * (LR_out <= self.args.inc_threshold) + nonrec_out * (LR_out > self.args.inc_threshold)
+
 
         if self.args.task == "LR":
-            return LR_out, LR_attn_weights
+            return LR_out, LR_hidden, LR_attn_weights
         elif self.args.task == "rec":
-            return rec_out, rec_attn_weights
+            return rec_out, rec_hidden, rec_attn_weights
         elif self.args.task == "nonrec":
-            return nonrec_out, nonrec_attn_weights
+            return nonrec_out, nonrec_hidden, nonrec_attn_weights
         else:
-            return weighted_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
+            return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
+
 
 

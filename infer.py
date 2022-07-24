@@ -41,7 +41,7 @@ def infer(infer_dataloader, model, model_type, args):
         attn_weights = [0,0,0]
 
     with torch.no_grad():
-        model.eval()
+        model.eval() # deactivate dropout
         for i, batch in tqdm(enumerate(infer_dataloader)):
             x, target, recurrent = batch
             x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
