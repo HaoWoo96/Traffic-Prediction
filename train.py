@@ -36,7 +36,8 @@ def train(train_dataloader, model, opt, epoch, args, writer):
             else:
                 # the second element returned are attention weights, which won't be used here but will be visualized during inference.
                 pred, _ = model(x, target)
-        
+            criterion = torch.nn.MSELoss()
+            loss = criterion(pred, target[:, 1:, :, 0])
         epoch_loss += loss
 
         # Backward and Optimize
