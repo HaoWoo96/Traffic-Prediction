@@ -340,7 +340,7 @@ def create_parser():
     parser.add_argument('--num_epochs', type=int, default=401, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of threads to use for the DataLoader.')
-    parser.add_argument('--lr', type=float, default=0.0005, help='Learning rate (default 0.001)')
+    parser.add_argument('--lr', type=float, default=0.0003, help='Learning rate (default 0.001)')
 
     parser.add_argument('--exp_name', type=str, default="exp", help='Name of the experiment')
 
@@ -375,10 +375,13 @@ if __name__ == '__main__':
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
 
     # Change input dimension based on task type and whether to use new features or not
-    if not args.use_density or not args.use_speed:
+    if not args.use_density:
+        args.in_dim -= 313 
+    if not args.use_speed:
         args.in_dim -= 313
-    
-    if not args.use_truck_spd or not args.use_pv_spd:
+    if not args.use_truck_spd:
+        args.in_dim -= 233
+    if not args.use_pv_spd:
         args.in_dim -= 233
     
     # Change speed ground truth frequency
