@@ -178,9 +178,12 @@ def main(args):
         # in "finetune" task, if checkpoint is not specified,
         # then we need to initialize the model with best checkpoint from "LR" (encoder & LR_decoder), "rec" (rec_decoder) and "nonrec" (nonrec_decoder)
         elif args.task == "finetune":
-            LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}.pt".format(args.exp_name)
-            rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best_{}.pt".format(args.exp_name)
-            nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best_{}.pt".format(args.exp_name)
+            # LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}.pt".format(args.exp_name)
+            # rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best_{}.pt".format(args.exp_name)
+            # nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best_{}.pt".format(args.exp_name)
+            LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}_T.pt".format("_".join(args.exp_name.split("_")[:-1]))
+            rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best_{}_T.pt".format("_".join(args.exp_name.split("_")[:-1]))
+            nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best_{}_T.pt".format("_".join(args.exp_name.split("_")[:-1]))
 
             # load state dict partially to initialize corresponding modules of TrafficModel
             with open(LR_model_path, 'rb') as f_LR, open(rec_model_path, 'rb') as f_rec, open(nonrec_model_path, 'rb') as f_nonrec:
