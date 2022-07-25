@@ -179,8 +179,8 @@ def eval_last_obs(infer_dataloader, args):
         args: arguments
     
     OUTPUTs:
-        xxx_root_mse: size (out_seq_len), root mean square error for each output time slot
-        xxx_mean_ape: size (out_seq_len), mean absolute percentage error for each output time slot
+        xxx_root_mse: tensor or dict of tensor in size (out_seq_len), root mean square error for each output time slot
+        xxx_mean_ape: tensor or dict of tensor in size (out_seq_len), mean absolute percentage error for each output time slot
     '''
     # initialization
     mapping = {"all":[0, args.out_dim], "truck":[args.out_dim, 2*args.out_dim], "pv":[2*args.out_dim, 3*args.out_dim]}
@@ -329,7 +329,7 @@ def main(args):
     if args.gt_type == "tmc":
         logging.info('{:=^100}'.format(" 2-Stage Traffic Model "))
         log_eval_spd_result_tmc(traffic_all_root_mse, traffic_rec_root_mse, traffic_nonrec_root_mse, traffic_all_mean_ape, traffic_rec_mean_ape, traffic_nonrec_mean_ape)
-        logging.info(f"Incident Prediction - Accuracy:{inc_accu},  Precision:{inc_precision},  Recall:{inc_recall}")
+        logging.info(f"Incident Prediction - Accuracy:{inc_accu},  Precision:{inc_precision},  Recall:{inc_recall}\n")
 
         logging.info('{:=^100}'.format(" Baseline 1 - Seq2Seq "))
         log_eval_spd_result_tmc(base_all_root_mse, base_rec_root_mse, base_nonrec_root_mse, base_all_mean_ape, base_rec_mean_ape, base_nonrec_mean_ape)
@@ -345,16 +345,18 @@ def main(args):
     else:
         logging.info('{:=^100}'.format(" 2-Stage Traffic Model "))
         log_eval_spd_result_xd(traffic_all_root_mse, traffic_rec_root_mse, traffic_nonrec_root_mse, traffic_all_mean_ape, traffic_rec_mean_ape, traffic_nonrec_mean_ape)
-        logging.info(f"Incident Prediction - Accuracy:{inc_accu},  Precision:{inc_precision},  Recall:{inc_recall}")
+        logging.info(f"Incident Prediction - Accuracy:{inc_accu},  Precision:{inc_precision},  Recall:{inc_recall}\n")
 
         logging.info('{:=^100}'.format(" Baseline 1 - Seq2Seq "))
         log_eval_spd_result_xd(base_all_root_mse, base_rec_root_mse, base_nonrec_root_mse, base_all_mean_ape, base_rec_mean_ape, base_nonrec_mean_ape)
+        logging.info(" ")
 
         logging.info('{:=^100}'.format(" Baseline 2 - LASSO "))
         # TO DO
 
         logging.info('{:=^100}'.format(" Baseline 3 - Latest Observations "))
         log_eval_spd_result_xd(lo_all_root_mse, lo_rec_root_mse, lo_nonrec_root_mse, lo_all_mean_ape, lo_rec_mean_ape, lo_nonrec_mean_ape)
+        logging.info(" ")
 
         logging.info('{:=^100}'.format(" Baseline 4 - Historical Average "))
         # TO DO

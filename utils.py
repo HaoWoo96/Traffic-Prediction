@@ -109,7 +109,7 @@ def log_eval_meta(args):
     logging.info('{:*^100}'.format(" 2-STAGE MODEL INFORMATION "))
     logging.info('(only used in finetune task):')
     logging.info(f"     Use Expectation of Prediction as Output: {args.use_expectation} ")
-    logging.info(f"     Incident Threshold: {args.inc_threshold} (only used in finetune task)")
+    logging.info(f"     Incident Threshold: {args.inc_threshold} ")
     # logging.info(f"Dropout Probability: {args.dropout_prob}")
     logging.info(f"Teacher Forcing Ratio: {args.teacher_forcing_ratio} \n")
 
