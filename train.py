@@ -12,7 +12,7 @@ from data_loader import get_data_loader
 from utils import save_checkpoint, create_dir
 
 
-def train(train_dataloader, model, opt, scheduler, epoch, args, writer):
+def train(train_dataloader, model, opt, epoch, args, writer):
 
     model.train()
     step = epoch*len(train_dataloader)
@@ -70,7 +70,7 @@ def train(train_dataloader, model, opt, scheduler, epoch, args, writer):
         writer.add_scalar("train_loss", loss.item(), step+i)
     
     # Decay Learning Rate
-    scheduler.step()
+    # scheduler.step()
     
     return epoch_loss/len(train_dataloader)
 
@@ -223,7 +223,7 @@ def main(args):
 
     # 6. Set up Optimizer and LR Scheduler
     opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
-    scheduler = optim.lr_scheduler.StepLR(opt, step_size=args.lr_decay_freq, gamma=args.lr_decay_rate)
+    # scheduler = optim.lr_scheduler.StepLR(opt, step_size=args.lr_decay_freq, gamma=args.lr_decay_rate)
 
     # 7. Load Data for Training & Testing
     train_dataloader, test_dataloader = get_data_loader(args=args)
@@ -243,7 +243,7 @@ def main(args):
 
     for epoch in range(max(0, args.load_checkpoint_epoch), args.num_epochs):
         # Train
-        train_epoch_loss = train(train_dataloader, model, opt, scheduler, epoch, args, writer)
+        train_epoch_loss = train(train_dataloader, model, opt, epoch, args, writer)
         test_epoch_loss = test(test_dataloader, model, epoch, args, writer)
 
         logging.info("epoch: {}   train loss (per batch): {:.4f}   test loss (per batch): {:.4f}".format(epoch, train_epoch_loss, test_epoch_loss))
@@ -328,8 +328,8 @@ def create_parser():
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of threads to use for the DataLoader.')
     parser.add_argument('--lr', type=float, default=0.0004, help='Learning rate (default 0.0004)')
-    parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='Decay Rate of Learning rate (default 0.1)')
-    parser.add_argument('--lr_decay_freq', type=int, default=50, help='Decay Frequency (in terms of epochs) of Learning rate  (default 50)')
+    # parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='Decay Rate of Learning rate (default 0.1)')
+    # parser.add_argument('--lr_decay_freq', type=int, default=50, help='Decay Frequency (in terms of epochs) of Learning rate  (default 50)')
 
     parser.add_argument('--exp_name', type=str, default="exp", help='Name of the experiment')
 
