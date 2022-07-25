@@ -137,8 +137,8 @@ def main(args):
     logging.info('{:*^100}'.format(" EXPERIMENT INFORMATION "))
     logging.info(f"Task: {args.task}")
     logging.info(f"Experiment Name: {args.exp_name}")
-    logging.info(f"Number of Epochs: {args.num_epochs}, Batch Size: {args.batch_size}")
-    logging.info(f"Learning Rate: {args.lr}, Scheduler Decay Rate: {args.lr_decay_rate}, Scheduler Decay Frequency: {args.lr_decay_freq} \n")
+    logging.info(f"Number of Epochs: {args.num_epochs}, Learning Rate: {args.lr}, Batch Size: {args.batch_size} \n")
+    # logging.info(f"Learning Rate: {args.lr}, Scheduler Decay Rate: {args.lr_decay_rate}, Scheduler Decay Frequency: {args.lr_decay_freq} \n")
 
     logging.info('{:*^100}'.format(" MODEL INFORMATION "))
     logging.info(f"Use Expectation of Prediction as Output: {args.use_expectation}")
