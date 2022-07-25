@@ -331,7 +331,7 @@ def create_parser():
     parser.add_argument('--num_epochs', type=int, default=401, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of threads to use for the DataLoader.')
-    parser.add_argument('--lr', type=float, default=0.0004, help='Learning rate (default 0.0004)')
+    parser.add_argument('--lr', type=float, default=0.0003, help='Learning rate (default 0.0003)')
     # parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='Decay Rate of Learning rate (default 0.1)')
     # parser.add_argument('--lr_decay_freq', type=int, default=50, help='Decay Frequency (in terms of epochs) of Learning rate  (default 50)')
 
