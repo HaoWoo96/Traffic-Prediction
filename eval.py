@@ -205,7 +205,7 @@ def eval_last_obs(infer_dataloader, args):
         for _, target in enumerate(infer_dataloader):
             target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
 
-            batch_size = x.size(0)
+            batch_size = target.size(0)
             instance_cnt += batch_size
 
             if args.gt_type == "tmc":
@@ -296,6 +296,8 @@ def main(args):
     # 4. Initialize Models
     base_model = TrafficSeq2Seq(args)
     traffic_model = TrafficModel(args)
+    traffic_model_use_inc_gt = TrafficModel(args)
+    traffic_model_use_inc_gt.args.use_inc_gt = 1
     
     # 5. Load Model Checkpoints
     # Base models (seq2seq models) are trained with args.use_expectation, although it doesn't make any difference whether args.use_expectation is true or not
@@ -313,23 +315,34 @@ def main(args):
         logging.info(f"successfully loaded checkpoint from {base_model_path}")
 
         traffic_model.load_state_dict(state_dict_traffic)
+        traffic_model_use_inc_gt.load_state_dict(state_dict_traffic)
         logging.info(f"successfully loaded checkpoint from {traffic_model_path}")
     
     # 6. Load Data for Inference
     infer_dataloader = get_inference_data_loader(args)
-    sorted_infer_dataloader = get_sorted_inference_data_loader(args)
+    # sorted_infer_dataloader = get_sorted_inference_data_loader(args)
     logging.info(f"successfully loaded data \n")
 
     # 7. Get and Log Evaluation Results
     logging.info('{:*^100}'.format(" EXPERIMENT RESULT "))
+    
+    # result for baseline 1 - Seq2Seq
     base_all_root_mse, base_rec_root_mse, base_nonrec_root_mse, base_all_mean_ape, base_rec_mean_ape, base_nonrec_mean_ape, base_attn_weight = eval_error(infer_dataloader=infer_dataloader, model=base_model, model_type="base", args=args)
+    # result for 2-stage model
     traffic_all_root_mse, traffic_rec_root_mse, traffic_nonrec_root_mse, traffic_all_mean_ape, traffic_rec_mean_ape, traffic_nonrec_mean_ape, [traffic_LR_attn_weight, traffic_rec_attn_weight, traffic_nonrec_attn_weight], inc_accu, inc_precision, inc_recall = eval_error(infer_dataloader=infer_dataloader, model=traffic_model, model_type="traffic", args=args)
+    # result for 2-stage model assuming perfect incident prediction
+    inc_gt_traffic_all_root_mse, inc_gt_traffic_rec_root_mse, inc_gt_traffic_nonrec_root_mse, inc_gt_traffic_all_mean_ape, inc_gt_traffic_rec_mean_ape, inc_gt_traffic_nonrec_mean_ape, _, _, _, _ = eval_error(infer_dataloader=infer_dataloader, model=traffic_model_use_inc_gt, model_type="traffic", args=args)
+    # result for baseline 3 - latest observation
     lo_all_root_mse, lo_rec_root_mse, lo_nonrec_root_mse, lo_all_mean_ape, lo_rec_mean_ape, lo_nonrec_mean_ape = eval_last_obs(infer_dataloader=infer_dataloader, device=args.device)
 
     if args.gt_type == "tmc":
         logging.info('{:=^100}'.format(" 2-Stage Traffic Model "))
         log_eval_spd_result_tmc(traffic_all_root_mse, traffic_rec_root_mse, traffic_nonrec_root_mse, traffic_all_mean_ape, traffic_rec_mean_ape, traffic_nonrec_mean_ape)
         logging.info(f"Incident Prediction - Accuracy:{inc_accu},  Precision:{inc_precision},  Recall:{inc_recall}\n")
+        # log result for 2-stage model assuming perfect incident prediction
+        logging.info('{:-^100}'.format(" assuming perfect incident status prediction "))
+        log_eval_spd_result_tmc(inc_gt_traffic_all_root_mse, inc_gt_traffic_rec_root_mse, inc_gt_traffic_nonrec_root_mse, inc_gt_traffic_all_mean_ape, inc_gt_traffic_rec_mean_ape, inc_gt_traffic_nonrec_mean_ape)
+        logging.info(" ")
 
         logging.info('{:=^100}'.format(" Baseline 1 - Seq2Seq "))
         log_eval_spd_result_tmc(base_all_root_mse, base_rec_root_mse, base_nonrec_root_mse, base_all_mean_ape, base_rec_mean_ape, base_nonrec_mean_ape)
@@ -345,7 +358,11 @@ def main(args):
     else:
         logging.info('{:=^100}'.format(" 2-Stage Traffic Model "))
         log_eval_spd_result_xd(traffic_all_root_mse, traffic_rec_root_mse, traffic_nonrec_root_mse, traffic_all_mean_ape, traffic_rec_mean_ape, traffic_nonrec_mean_ape)
+        # log result for 2-stage model assuming perfect incident prediction
         logging.info(f"Incident Prediction - Accuracy:{inc_accu},  Precision:{inc_precision},  Recall:{inc_recall}\n")
+        logging.info('{:-^100}'.format(" assuming perfect incident status prediction "))
+        log_eval_spd_result_tmc(inc_gt_traffic_all_root_mse, inc_gt_traffic_rec_root_mse, inc_gt_traffic_nonrec_root_mse, inc_gt_traffic_all_mean_ape, inc_gt_traffic_rec_mean_ape, inc_gt_traffic_nonrec_mean_ape)
+        logging.info(" ")
 
         logging.info('{:=^100}'.format(" Baseline 1 - Seq2Seq "))
         log_eval_spd_result_xd(base_all_root_mse, base_rec_root_mse, base_nonrec_root_mse, base_all_mean_ape, base_rec_mean_ape, base_nonrec_mean_ape)

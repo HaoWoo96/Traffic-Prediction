@@ -275,6 +275,9 @@ def create_parser():
     parser.add_argument('--inc_threshold', type=float, default=0.1, help='threshold of a prediction be considered as an incident')
     parser.add_argument('--use_expectation', action="store_true", help='use expectation of speed prediction as model output')
 
+    # Assuming perfect incident status prediction at stage 1 of the 2-stage model (Traffic)
+    parser.add_argument('--use_gt_inc', type=int, default=0, help='use ground truth of indicent status as input to second stage')
+
     # 2. Data Hyper-parameters
     parser.add_argument('--train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
     parser.add_argument('--seed', type=int, default=42, help='Seed for random splitting')

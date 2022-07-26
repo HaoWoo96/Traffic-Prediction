@@ -264,12 +264,14 @@ class TrafficModel(nn.Module):
             nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., :3].reshape(batch_size, self.args.out_seq_len+1, self.args.out_dim*3), enc_hidden, enc_out)
             
             # generate final speed prediction
-            if self.args.use_expectation:
-                rec_weight = torch.ones(LR_out.repeat(1,1,3).size()).to(self.args.device) - LR_out.repeat(1,1,3)
-                speed_pred = rec_out * rec_weight + nonrec_out * LR_out.repeat(1,1,3) 
+            if self.args.use_gt_inc:
+                    speed_pred = rec_out * (target[..., 3].repeat(1,1,3) <= 0.5) + nonrec_out * (target[..., 3].repeat(1,1,3) > 0.5)
             else:
-
-                speed_pred = rec_out * (LR_out.repeat(1,1,3) <= self.args.inc_threshold) + nonrec_out * (LR_out.repeat(1,1,3) > self.args.inc_threshold)
+                if self.args.use_expectation:
+                    rec_weight = torch.ones(LR_out.repeat(1,1,3).size()).to(self.args.device) - LR_out.repeat(1,1,3)
+                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out.repeat(1,1,3) 
+                else:
+                    speed_pred = rec_out * (LR_out.repeat(1,1,3) <= self.args.inc_threshold) + nonrec_out * (LR_out.repeat(1,1,3) > self.args.inc_threshold)
        
         else:
             LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 1], enc_hidden, enc_out)
@@ -277,11 +279,14 @@ class TrafficModel(nn.Module):
             nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], enc_hidden, enc_out)
 
             # generate final speed prediction
-            if self.args.use_expectation:
-                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+            if self.args.use_gt_inc:
+                    speed_pred = rec_out * (target[..., 1] <= 0.5) + nonrec_out * (target[..., 1] > 0.5)
             else:
-                speed_pred = rec_out * (LR_out <= self.args.inc_threshold) + nonrec_out * (LR_out > self.args.inc_threshold)
+                if self.args.use_expectation:
+                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
+                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                else:
+                    speed_pred = rec_out * (LR_out <= self.args.inc_threshold) + nonrec_out * (LR_out > self.args.inc_threshold)
 
 
         if self.args.task == "LR":
