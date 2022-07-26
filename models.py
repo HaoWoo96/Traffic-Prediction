@@ -17,7 +17,8 @@ class EncoderRNN(nn.Module):
                 nn.Dropout(args.dropout_prob),
                 nn.Linear(args.in_dim, 2*args.hidden_dim)
                 )
-        self.gru = nn.GRU(input_size=2*args.hidden_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
+        # self.gru = nn.GRU(input_size=2*args.hidden_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
+        self.gru = nn.GRU(input_size=args.in_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
 
     def forward(self, x, hidden):
         '''
@@ -32,8 +33,10 @@ class EncoderRNN(nn.Module):
         # embedded_incident_feat = torch.flatten(embedded_incident_feat, start_dim=-2)  # (batch_size, in_seq_len, incident_feat_dim * incident_embed_dim)
         # embedded_input = torch.cat((input[:self.incident_start], embedded_incident_feat, input[self.incident_end:]), dim=-1)  # (batch_size, in_seq_len, in_feat_dim)
         # output, hidden = self.gru(embedded_input, hidden)
-        processed_input = self.input_processing(x)
-        output, hidden = self.gru(processed_input, hidden)
+
+        # processed_input = self.input_processing(x)
+        # output, hidden = self.gru(processed_input, hidden)
+        output, hidden = self.gru(x, hidden)
 
         return output, hidden
 

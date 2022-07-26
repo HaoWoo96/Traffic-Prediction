@@ -48,37 +48,12 @@ class TrafficData(Dataset):
             x_idx_remain = min(max(idx % 180, 6, self.args.in_seq_len-1), np.floor((186*5 - self.args.out_seq_len*self.args.out_freq)/5)) # ensure we have valid idx based on input and output sequence length
             idx = int(x_idx_remain + x_idx_base * 180)
             Y_idx = [(idx-6)*5 + i*self.args.out_freq for i in range(self.args.out_seq_len+1)]  # be careful, the starting point (first idx) of Y is the same as the last idx of X, and won't count into output sequence length
-
-        '''
-        recurrent:
-            - denotes whether instance at index idx is a recurrent case or not
-        '''
-        recurrent = True  
+ 
 
         X = self.X[(idx-self.args.in_seq_len+1):idx+1, :]
         Y = self.Y[Y_idx, :, :]
 
-        if torch.sum(Y[:, :, 1]) > 0:
-            # if there is/are incident(s) in output segments (sum of all entries is greater than 0)
-            recurrent = False
-
-        return X, Y, recurrent
-
-
-class TrafficDataByCase(Dataset):
-    '''
-    dataset class for recurrent instances or nonrecurrent instances
-    '''
-    def __init__(self, X, Y):
-
-        self.X = X  # (num_instance, in_seq_len, in_dim)
-        self.Y = Y  # (num_instance, out_seq_len + 1, out_dim, 2)
-    
-    def __len__(self):
-        return self.X.size(0)
-    
-    def __getitem__(self, idx):
-        return self.X[idx], self.Y[idx], 0  # the third element is just a placeholder
+        return X, Y
 
 
 def get_data_loader(args):
@@ -96,61 +71,6 @@ def get_data_loader(args):
     train_dloader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     test_dloader = DataLoader(dataset=test_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
     
-    # # create special dataloader for recurrent & non-recurrent prediction
-    # if args.task == "rec" or args.task == "nonrec":
-    #     rec_X_path = f"{args.data_dir}/rec_X_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
-    #     rec_Y_path = f"{args.data_dir}/rec_Y_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
-    #     nonrec_X_path = f"{args.data_dir}/nonrec_X_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
-    #     nonrec_Y_path = f"{args.data_dir}/nonrec_Y_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}.pt"
-
-    #     # create and save recurrent & non-recurrent data by splitting the whole dataset into 
-    #     if not os.path.exists(rec_X_path):
-    #         whole_dloader = DataLoader(dataset=whole_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-    #         rec_X = torch.cat([x[recurrent==True] for x, y, recurrent in whole_dloader])
-    #         rec_Y = torch.cat([y[recurrent==True] for x, y, recurrent in whole_dloader])
-    #         torch.save(rec_X, rec_X_path)
-    #         torch.save(rec_Y, rec_Y_path)
-
-    #         nonrec_X = torch.cat([x[recurrent==False] for x, y, recurrent in whole_dloader])
-    #         nonrec_Y = torch.cat([y[recurrent==False] for x, y, recurrent in whole_dloader])
-    #         torch.save(nonrec_X, nonrec_X_path)
-    #         torch.save(nonrec_Y, nonrec_Y_path)
-        
-    #     # load recurrent / nonrecurrent dataset and create dataloader
-    #     if args.task == "rec":
-    #         rec_X = torch.load(rec_X_path)
-    #         rec_Y = torch.load(rec_Y_path)
-            
-    #         rec_dataset = TrafficDataByCase(rec_X, rec_Y)
-
-    #         rec_train_size = int(np.ceil(args.train_ratio * len(rec_dataset)))
-    #         rec_test_size = len(rec_dataset) - rec_train_size
-
-    #         # split train and test dataset
-    #         rec_train_dataset, rec_test_dataset = torch.utils.data.random_split(dataset = rec_dataset, lengths = [rec_train_size, rec_test_size], generator=torch.Generator().manual_seed(args.seed))
-
-    #         rec_train_dloader = DataLoader(dataset=rec_train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-    #         rec_test_dloader = DataLoader(dataset=rec_test_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
-
-    #         return rec_train_dloader, rec_test_dloader
-        
-    #     else:
-    #         nonrec_X = torch.load(nonrec_X_path)
-    #         nonrec_Y = torch.load(nonrec_Y_path)
-            
-    #         nonrec_dataset = TrafficDataByCase(nonrec_X, nonrec_Y)
-
-    #         nonrec_train_size = int(np.ceil(args.train_ratio * len(nonrec_dataset)))
-    #         nonrec_test_size = len(nonrec_dataset) - nonrec_train_size
-
-    #         # split train and test dataset
-    #         nonrec_train_dataset, nonrec_test_dataset = torch.utils.data.random_split(dataset = nonrec_dataset, lengths = [nonrec_train_size, nonrec_test_size], generator=torch.Generator().manual_seed(args.seed))
-
-    #         nonrec_train_dloader = DataLoader(dataset=nonrec_train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-    #         nonrec_test_dloader = DataLoader(dataset=nonrec_test_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
-
-    #         return nonrec_train_dloader, nonrec_test_dloader
-
     return train_dloader, test_dloader
 
 
@@ -162,3 +82,13 @@ def get_inference_data_loader(args):
     whole_dloader = DataLoader(dataset=whole_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
 
     return whole_dloader
+
+def get_sorted_inference_data_loader(args):
+    """
+    FUNCTION:
+        Creates data loader for model inference
+        Output is sorted by time 
+
+    OUTPUT:
+        sorted_infer_dataloader
+    """

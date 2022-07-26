@@ -9,8 +9,11 @@ from torch.utils.tensorboard import SummaryWriter
 
 from models import TrafficSeq2Seq, TrafficModel
 from data_loader import get_data_loader
-from utils import save_checkpoint, create_dir
+from utils import save_checkpoint, create_dir, log_train_meta
 
+########################################
+#       TRAINING/TESTING FUNCTIONS     #
+########################################
 
 def train(train_dataloader, model, opt, epoch, args, writer):
 
@@ -19,7 +22,7 @@ def train(train_dataloader, model, opt, epoch, args, writer):
     epoch_loss = 0
 
     for i, batch in enumerate(train_dataloader):
-        x, target, _ = batch
+        x, target = batch
         x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2 or 4) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
         batch_size = x.size(0)
@@ -42,9 +45,9 @@ def train(train_dataloader, model, opt, epoch, args, writer):
                 # register hook to only consider certain segments for the computation of loss
                 if args.task in {"rec", "nonrec"}:
                     if args.task == "rec":
-                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) < 1).float())
+                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) < 0.5).float())
                     else:
-                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) >= 1).float())
+                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) >= 0.5).float())
                 loss = criterion(pred, target[:, 1:, :, :3].reshape(batch_size, args.out_seq_len, 3*args.out_dim))
             else:
                 # register hook to only consider certain segments for the computation of loss
@@ -69,6 +72,9 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         # Logging
         writer.add_scalar("train_loss", loss.item(), step+i)
     
+    # Decay Learning Rate
+    # scheduler.step()
+    
     return epoch_loss/len(train_dataloader)
 
 
@@ -79,7 +85,7 @@ def test(test_dataloader, model, epoch, args, writer):
     epoch_loss = 0
 
     for i, batch in enumerate(test_dataloader):
-        x, target, _ = batch
+        x, target = batch
         x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
         batch_size = x.size(0)
@@ -100,28 +106,11 @@ def test(test_dataloader, model, epoch, args, writer):
             else: 
                 criterion = torch.nn.MSELoss()
                 if args.gt_type == "tmc":
-                    # register hook to only consider certain segments for the computation of loss
-                    if args.task in {"rec", "nonrec"}:
-                        if args.task == "rec":
-                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) < 1).float())
-                        else:
-                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) >= 1).float())
                     loss = criterion(pred, target[:, 1:, :, :3].reshape(batch_size, args.out_seq_len, 3*args.out_dim))
                 else:
-                    # register hook to only consider certain segments for the computation of loss
-                    if args.task in {"rec", "nonrec"}:
-                        if args.task == "rec":
-                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] < 1).float())
-                        else:
-                            h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] >= 1).float())
                     loss = criterion(pred, target[:, 1:, :, 0])
 
             epoch_loss += loss
-
-            # remove hook if needed
-            if args.task in {"rec", "nonrec"}:
-                h.remove()
-
 
         # Logging
         writer.add_scalar("test_loss", loss.item(), step+i)
@@ -129,6 +118,9 @@ def test(test_dataloader, model, epoch, args, writer):
     return epoch_loss/len(test_dataloader)
 
 
+########################################
+#           TRAINING PIPELINE          #
+########################################
 def main(args):
     """
     train model, evaluate on test data, and save checkpoints
@@ -143,28 +135,8 @@ def main(args):
         logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training_resume.log", filemode="w", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
     else:
         logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training.log", filemode="w", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
-
-    # log experiment and data information
-    logging.info('{:*^100}'.format(" COMMAND LINE "))
-    logging.info(" ".join(sys.argv) + "\n")
-
-    logging.info('{:*^100}'.format(" EXPERIMENT INFORMATION "))
-    logging.info(f"Task: {args.task}")
-    logging.info(f"Experiment Name: {args.exp_name}")
-    logging.info(f"Number of Epochs: {args.num_epochs}, Learning Rate: {args.lr}, Batch Size: {args.batch_size} \n")
-
-    logging.info('{:*^100}'.format(" MODEL INFORMATION "))
-    logging.info(f"Use Expectation of Prediction as Output: {args.use_expectation}")
-    logging.info(f"Incident Threshold: {args.inc_threshold} (only used in finetune task)")
-    logging.info(f"Dropout Probability: {args.dropout_prob}")
-    logging.info(f"Teacher Forcing Ratio: {args.teacher_forcing_ratio} \n")
-
-    logging.info('{:*^100}'.format(" DATA INFORMATION "))
-    logging.info(f"Ground Truth Speed Data Source: {args.gt_type}")
-    logging.info(f"Use Density: {args.use_density}; Use Truck Speed: {args.use_truck_spd}; Use Personal Vehicle Speed: {args.use_pv_spd}; Use Raw Speed: {args.use_speed}")
-    logging.info(f"Input Sequence Length: {args.in_seq_len}; Output Sequence Lenth: {args.out_seq_len}; Output Frequency: {args.out_freq} \n")
-
-    logging.info('{:*^100}'.format(" LOADING PROGRESS "))
+    # log meta info of training experiment
+    log_train_meta(args)
 
     # 3. Initialize Model
     if args.task != "base":
@@ -192,9 +164,16 @@ def main(args):
         # in "finetune" task, if checkpoint is not specified,
         # then we need to initialize the model with best checkpoint from "LR" (encoder & LR_decoder), "rec" (rec_decoder) and "nonrec" (nonrec_decoder)
         elif args.task == "finetune":
-            LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}.pt".format(args.exp_name)
-            rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best_{}.pt".format(args.exp_name)
-            nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best_{}.pt".format(args.exp_name)
+            # LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}.pt".format(args.exp_name)
+            # rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best_{}.pt".format(args.exp_name)
+            # nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best_{}.pt".format(args.exp_name)
+
+            # LR/Rec/Nonrec modules are trained with args.use_expectation, although it doesn't make any difference whether args.use_expectation is true or not
+            # Therefore, pretrained LR/Rec/Nonrec modules are all marked with "best_exp_x_x_x_x_x_x_T.pt".
+            # args.use_expectation does make a difference in finetune task
+            LR_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}_T.pt".format("_".join(args.exp_name.split("_")[:-1]))  
+            rec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/rec/best_{}_T.pt".format("_".join(args.exp_name.split("_")[:-1]))
+            nonrec_model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/nonrec/best_{}_T.pt".format("_".join(args.exp_name.split("_")[:-1]))
 
             # load state dict partially to initialize corresponding modules of TrafficModel
             with open(LR_model_path, 'rb') as f_LR, open(rec_model_path, 'rb') as f_rec, open(nonrec_model_path, 'rb') as f_nonrec:
@@ -235,8 +214,9 @@ def main(args):
         model.LR_decoder.requires_grad_(False)
         model.rec_decoder.requires_grad_(False)
 
-    # 6. Set up Optimizer
+    # 6. Set up Optimizer and LR Scheduler
     opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
+    # scheduler = optim.lr_scheduler.StepLR(opt, step_size=args.lr_decay_freq, gamma=args.lr_decay_rate)
 
     # 7. Load Data for Training & Testing
     train_dataloader, test_dataloader = get_data_loader(args=args)
@@ -299,7 +279,6 @@ def create_parser():
     parser.add_argument('--train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
     parser.add_argument('--seed', type=int, default=42, help='Seed for random splitting')
     parser.add_argument('--gt_type', type=str, default="tmc", help='ground truth speed type, "tmc" or "xd"')
-    parser.add_argument('--gt_freq', type=float, default=1, help='ground truth speed frequency, 1 for "tmc" or 5 for "xd"')
 
     parser.add_argument('--in_dim', type=int, default = 1796, help='dimension of input')
     parser.add_argument('--out_dim', type=int, default=70, help=' dimension of output i.e. number of segments (78 by default)')
@@ -340,7 +319,9 @@ def create_parser():
     parser.add_argument('--num_epochs', type=int, default=401, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of threads to use for the DataLoader.')
-    parser.add_argument('--lr', type=float, default=0.0005, help='Learning rate (default 0.001)')
+    parser.add_argument('--lr', type=float, default=0.0003, help='Learning rate (default 0.0003)')
+    # parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='Decay Rate of Learning rate (default 0.1)')
+    # parser.add_argument('--lr_decay_freq', type=int, default=50, help='Decay Frequency (in terms of epochs) of Learning rate  (default 50)')
 
     parser.add_argument('--exp_name', type=str, default="exp", help='Name of the experiment')
 
@@ -375,18 +356,14 @@ if __name__ == '__main__':
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
 
     # Change input dimension based on task type and whether to use new features or not
-    if not args.use_density or not args.use_speed:
+    if not args.use_density:
+        args.in_dim -= 313 
+    if not args.use_speed:
         args.in_dim -= 313
-    
-    if not args.use_truck_spd or not args.use_pv_spd:
+    if not args.use_truck_spd:
         args.in_dim -= 233
-    
-    # Change speed ground truth frequency
-    if args.gt_type == "tmc":
-        args.gt_freq = 1
-    else:
-        args.gt_freq = 5
-
+    if not args.use_pv_spd:
+        args.in_dim -= 233
 
     # 2. Execute Training Pipeline
     main(args)
