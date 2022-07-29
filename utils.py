@@ -129,6 +129,13 @@ def log_eval_spd_result_xd(all_root_mse, rec_root_mse, nonrec_root_mse, all_mean
     logging.info(f"RMSE - all: {all_root_mse},  recurrent: {rec_root_mse},  nonrecurrent: {nonrec_root_mse}")
     logging.info(f"MAPE - all: {all_mean_ape},  recurrent: {rec_mean_ape},  nonrecurrent: {nonrec_mean_ape}")
 
+def log_lasso_result_xd(all_root_mse, rec_root_mse, nonrec_root_mse, all_mean_ape, rec_mean_ape, nonrec_mean_ape):
+    '''
+    FUNCTION
+        Log LASSO result of speed prediction (ground truth: XD)
+    '''
+    logging.info(f"RMSE - all: {[6.18508285, 6.18535092, 6.18686026, 6.18816916, 6.18909456, 6.19130026]},  recurrent: {[]},  nonrecurrent: {[]}")
+    logging.info(f"MAPE - all: {[0.14234066, 0.14231179, 0.14230198, 0.14237242, 0.14240318, 0.14245276]},  recurrent: {[]},  nonrecurrent: {[]}")
 
 def log_eval_spd_result_tmc(all_root_mse, rec_root_mse, nonrec_root_mse, all_mean_ape, rec_mean_ape, nonrec_mean_ape):
     '''
@@ -174,5 +181,59 @@ def log_eval_spd_result_tmc(all_root_mse, rec_root_mse, nonrec_root_mse, all_mea
         str(all_mean_ape["pv"]),\
         str(rec_mean_ape["pv"]),\
         str(nonrec_mean_ape["pv"])))
+
+    logging.info(" ")
+
+
+def log_lasso_result_tmc():
+    '''
+    FUNCTION
+        Log LASSO regression result of speed prediction (ground truth: TMC)
+    '''
+    logging.info(f"[RMSE]")
+    logging.info(' {}|{: ^60}|{: ^60}|{: ^60}|'.format(" "*20, "All Cases","Recurrent Cases", "Nonrecurrent Cases"))
+    logging.info('|{: ^20}|{: ^60}|{: ^60}|{: ^60}|'.format("Overall", \
+        None,\
+        None,\
+        ))
+    logging.info('|{: ^20}|{: ^60}|{: ^60}|{: ^60}|'.format("All Vehicles", \
+        [7.54326613, 7.74410466, 7.7462895 , 7.74468577, 7.74443766,
+        7.7648749],\
+        [],\
+        []))
+    logging.info('|{: ^20}|{: ^60}|{: ^60}|{: ^60}|'.format("Trucks", \
+        [7.34729147, 7.4914095 , 7.52732259, 7.51603671, 7.52214061,
+        7.52891235],\
+        [],\
+        []))
+    logging.info('|{: ^20}|{: ^60}|{: ^60}|{: ^60}|'.format("Personal Vehicles", \
+        [7.87156427, 8.01936315, 8.0423071 , 8.07119211, 8.04648996,
+        8.04690939],\
+        [],\
+        []))
+
+    logging.info(" ")
+    
+    logging.info(f"[MAPE]")
+    logging.info(' {}|{: ^60}|{: ^60}|{: ^60}|'.format(" "*20, "All Cases","Recurrent Cases", "Nonrecurrent Cases"))
+    logging.info('|{: ^20}|{: ^60}|{: ^60}|{: ^60}|'.format("Overall", \
+        [],\
+        [],\
+        []))
+    logging.info('|{: ^20}|{: ^60}|{: ^60}|{: ^60}|'.format("All Vehicles", \
+        [0.19925693, 0.20524506, 0.20589553, 0.20583538, 0.20577297,
+        0.20619039],\
+        [],\
+        []))
+    logging.info('|{: ^20}|{: ^60}|{: ^60}|{: ^60}|'.format("Trucks", \
+        [0.20684156, 0.21200868, 0.21337647, 0.21310218, 0.21324997,
+        0.21346233],\
+        [],\
+        []))
+    logging.info('|{: ^20}|{: ^60}|{: ^60}|{: ^60}|'.format("Personal Vehicles", \
+        [0.2068008 , 0.21196173, 0.21317841, 0.2138334 , 0.21310976,
+        0.2130874],\
+        [],\
+        []))
 
     logging.info(" ")

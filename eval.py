@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from models import TrafficSeq2Seq, TrafficModel
 from data_loader import get_inference_data_loader, get_sorted_inference_data_loader
-from utils import create_dir, log_eval_meta, log_eval_spd_result_tmc, log_eval_spd_result_xd, visualize_attn_weight, log_eval_meta
+from utils import create_dir, log_eval_meta, log_eval_spd_result_tmc, log_eval_spd_result_xd, visualize_attn_weight, log_eval_meta, log_lasso_result_tmc, log_lasso_result_xd
 from train import create_parser
 
 ##################################
@@ -149,8 +149,9 @@ def eval_error(infer_dataloader, model, model_type, args):
             inc_targets = torch.cat(inc_targets, axis=0).type(torch.int)  # (instance_cnt, out_seq_len, out_dim) 
             inc_predictions = torch.cat(inc_predictions, axis=0)  # (instance_cnt, out_seq_len, out_dim)
 
-            inc_accu = accu_metric(inc_predictions, inc_targets) 
-            inc_precision, inc_recall = precision_recall(inc_predictions, inc_targets)
+            sigm = torch.nn.Sigmoid()
+            inc_accu = accu_metric(sigm(inc_predictions), inc_targets) 
+            inc_precision, inc_recall = precision_recall(sigm(inc_predictions), inc_targets)
 
             return all_root_mse, rec_root_mse, nonrec_root_mse, all_mean_ape, rec_mean_ape, nonrec_mean_ape, attn_weights, inc_accu, inc_precision, inc_recall       
 
@@ -348,7 +349,7 @@ def main(args):
         log_eval_spd_result_tmc(base_all_root_mse, base_rec_root_mse, base_nonrec_root_mse, base_all_mean_ape, base_rec_mean_ape, base_nonrec_mean_ape)
 
         logging.info('{:=^100}'.format(" Baseline 2 - LASSO "))
-        # TO DO
+        # log_lasso_result_tmc()
 
         logging.info('{:=^100}'.format(" Baseline 3 - Latest Observations "))
         log_eval_spd_result_tmc(lo_all_root_mse, lo_rec_root_mse, lo_nonrec_root_mse, lo_all_mean_ape, lo_rec_mean_ape, lo_nonrec_mean_ape)
@@ -369,7 +370,7 @@ def main(args):
         logging.info(" ")
 
         logging.info('{:=^100}'.format(" Baseline 2 - LASSO "))
-        # TO DO
+        # log_lasso_result_xd()
 
         logging.info('{:=^100}'.format(" Baseline 3 - Latest Observations "))
         log_eval_spd_result_xd(lo_all_root_mse, lo_rec_root_mse, lo_nonrec_root_mse, lo_all_mean_ape, lo_rec_mean_ape, lo_nonrec_mean_ape)
