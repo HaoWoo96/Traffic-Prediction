@@ -134,7 +134,7 @@ def eval_error(infer_dataloader, model, model_type, args):
             # mean absolute percentage error
             all_mean_ape = torch.sum(all_abs_perc_error, axis=1)/(instance_cnt*args.out_dim)  # (out_seq_len)
             rec_mean_ape = torch.sum(rec_abs_perc_error, axis=1)/rec_cnt  # (out_seq_len)
-            nonrec_mean_ape = torch.sum(nonrec_abs_perc_error, axis=1)/nonrec_cnt*args.out_dim  # (out_seq_len)
+            nonrec_mean_ape = torch.sum(nonrec_abs_perc_error, axis=1)/nonrec_cnt  # (out_seq_len)
         
         # (Evaluate Incident Status Prediction &) Compute Average Attention Weights  
         if model_type == "base":
@@ -260,18 +260,18 @@ def eval_last_obs(infer_dataloader, args):
 
                 # mean absolute percentage error
                 all_mean_ape[s] = torch.sum(all_abs_perc_error[s], axis=1)/(instance_cnt*args.out_dim)  # (out_seq_len)
-                rec_mean_ape[s] = torch.sum(rec_abs_perc_error[s], axis=1)/(rec_cnt)  # (out_seq_len)
-                nonrec_mean_ape[s] = torch.sum(nonrec_abs_perc_error[s], axis=1)/(nonrec_cnt)  # (out_seq_len)
+                rec_mean_ape[s] = torch.sum(rec_abs_perc_error[s], axis=1)/rec_cnt  # (out_seq_len)
+                nonrec_mean_ape[s] = torch.sum(nonrec_abs_perc_error[s], axis=1)/nonrec_cnt  # (out_seq_len)
         else:
             # mean square error
             all_root_mse = (torch.sum(all_square_error, axis=1)/(instance_cnt*args.out_dim))**0.5  # (out_seq_len)
-            rec_root_mse = (torch.sum(rec_square_error, axis=1)/(rec_cnt*args.out_dim))**0.5  # (out_seq_len)
-            nonrec_root_mse = (torch.sum(nonrec_square_error, axis=1)/(nonrec_cnt*args.out_dim))**0.5  # (out_seq_len)
+            rec_root_mse = (torch.sum(rec_square_error, axis=1)/rec_cnt)**0.5  # (out_seq_len)
+            nonrec_root_mse = (torch.sum(nonrec_square_error, axis=1)/nonrec_cnt)**0.5  # (out_seq_len)
 
             # mean absolute percentage error
             all_mean_ape = torch.sum(all_abs_perc_error, axis=1)/(instance_cnt*args.out_dim)  # (out_seq_len)
-            rec_mean_ape = torch.sum(rec_abs_perc_error, axis=1)/(rec_cnt*args.out_dim)  # (out_seq_len)
-            nonrec_mean_ape = torch.sum(nonrec_abs_perc_error, axis=1)/(nonrec_cnt*args.out_dim)  # (out_seq_len)
+            rec_mean_ape = torch.sum(rec_abs_perc_error, axis=1)/rec_cnt  # (out_seq_len)
+            nonrec_mean_ape = torch.sum(nonrec_abs_perc_error, axis=1)/nonrec_cnt  # (out_seq_len)
 
     return all_root_mse, rec_root_mse, nonrec_root_mse, all_mean_ape, rec_mean_ape, nonrec_mean_ape
 
@@ -361,7 +361,7 @@ def main(args):
         # log result for 2-stage model assuming perfect incident prediction
         logging.info(f"Incident Prediction - Accuracy:{inc_accu},  Precision:{inc_precision},  Recall:{inc_recall}\n")
         logging.info('{:-^100}'.format(" assuming perfect incident status prediction "))
-        log_eval_spd_result_tmc(inc_gt_traffic_all_root_mse, inc_gt_traffic_rec_root_mse, inc_gt_traffic_nonrec_root_mse, inc_gt_traffic_all_mean_ape, inc_gt_traffic_rec_mean_ape, inc_gt_traffic_nonrec_mean_ape)
+        log_eval_spd_result_xd(inc_gt_traffic_all_root_mse, inc_gt_traffic_rec_root_mse, inc_gt_traffic_nonrec_root_mse, inc_gt_traffic_all_mean_ape, inc_gt_traffic_rec_mean_ape, inc_gt_traffic_nonrec_mean_ape)
         logging.info(" ")
 
         logging.info('{:=^100}'.format(" Baseline 1 - Seq2Seq "))
