@@ -1,7 +1,11 @@
+import random
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import random
+
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
+
 
 #############################
 #       BUILDING BLOCKS     #
@@ -45,7 +49,61 @@ class EncoderRNN(nn.Module):
         # because the last batch may not have full batch_size
         return torch.zeros(self.args.num_layer, batch_size, self.args.hidden_dim, device=self.args.device)
 
-# naive decoder 
+
+# Positional Embedding Encoder for Transformer Encoder
+class PosEmbed(nn.Module):
+    def __init__(self, args):
+        super(PosEmbed, self).__init__()
+        self.dropout = nn.Dropout(p=args.dropout)
+        
+        position = torch.arange(args.in_seq_len).unsqueeze(0)
+        div_term = torch.exp(torch.arange(0, args.in_dim, 2)*(-math.log(10000.0) / args.in_dim))
+        self.pe = torch.zeros(1, args.in_seq_len, args.in_dim)
+        self.pe[0, :, 0::2] = torch.sin(position * div_term)
+        self.pe[0, :, 1::2] = torch.cos(position * div_term)
+
+        self.register_buffer('pe', self.pe)
+        self.args = args
+
+
+    def forward(self, x):
+        '''
+        INPUTs
+            x: input, (batch_size, in_seq_len, in_dim)
+        OUTPUTs
+            output: (batch_size, in_seq_len, in_dim)
+        '''
+        x = x + self.pe
+        return self.dropout(x)
+
+
+# Transformer Encoder
+class EncoderTrans(nn.Module):
+    def __init__(self, args):
+        super(EncoderTrans, self).__init__()
+        self.args = args
+
+        self.pos_encoder = PosEmbed(args)
+        self.trans_encoder_layers = TransformerEncoderLayer(d_model=args.in_dim, nhead=args.num_head, dropout=args.dropout, batch_first=True)
+        self.trans_encoder = TransformerEncoder(encoder_layers=self.trans_encoder_layers, nlayers=args.num_trans_layers)
+
+        # Generates an upper-triangular matrix of -inf, with zeros on diag.
+        self.mask = torch.triu(torch.ones(args.in_seq_len, args.in_seq_len) * float('-inf'), diagonal=1)  # size (in_seq_len, in_seq_len)
+
+    def forward(self, x):
+        '''
+        INPUTs
+            x: input, (batch_size, in_seq_len, in_dim)
+        OUTPUTs
+            output: (batch_size, in_seq_len, in_dim)
+        '''
+        new_x = x * math.sqrt(self.args.in_dim)
+        new_x = self.pos_encoder(new_x)
+        output = self.transformer_encoder(new_x, self.mask)
+        return output
+        
+
+# RNN Decoder without Attention
 class DecoderRNN(nn.Module):
     def __init__(self, args, dec_type):
         '''
@@ -95,13 +153,13 @@ class DecoderRNN(nn.Module):
         
         return torch.cat(tensors=output, dim=1), hidden
 
-# decoder with attention
+# RNN Decoder with Attention
 class AttnDecoderRNN(nn.Module):
     def __init__(self, args, dec_type):
         '''
         INPUTs
             args: arguments
-            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "R": for speed prediction)
+            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "Non_LR": for speed prediction)
         '''
         super(AttnDecoderRNN, self).__init__()
         self.args = args
@@ -182,20 +240,56 @@ class AttnDecoderRNN(nn.Module):
 
                 x = temp_out.detach()  # use prediction as next input, detach from history
 
-
         return torch.cat(tensors=output, dim=1), hidden, torch.cat(tensors=attn_weights, dim=1)
+
+# MLP Decoder (used for Transformer Model)
+class DecoderMLP(nn.Module):
+    def __init__(self, args, dec_type):
+        '''
+        INPUTs
+            args: arguments
+            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "Non_LR": for speed prediction)
+        '''
+        super(DecoderMLP, self).__init__()
+        self.args = args
+
+        final_dim = args.out_dim * args.out_seq_len
+
+        # for TMC speed prediction, model should output 3*out_dim results (all/truck/personal vehicle)
+        if args.gt_type == "tmc" and dec_type != "LR":
+            final_dim = 3*final_dim
+
+        self.decoder = nn.Sequential(
+            nn.Linear(args.in_dim*args.in_seq_len, 2048),
+            nn.Linear(2048, 1024),
+            nn.Linear(1024, final_dim)
+        )
+
+    def forward(self, x):
+        '''
+        INPUTs
+            x: input, (batch_size, in_seq_len, in_dim)
+
+        OUTPUTs
+            result: speed prediction or incident status prediction, (batch_size, out_seq_len, out_dim)
+        '''
+        batch_size = x.size(0)
+        result = self.decoder(x.view(batch_size, -1))  # (batch_size, out_seq_len * out_dim)
+
+        return result.view(batch_size, self.args.out_seq_len, self.args.out_dim)
 
 
 #############################
 #           MODELS          #
 #############################
-class TrafficSeq2Seq(nn.Module):
+# 1. Sequence-to-sequence Model without Factorization
+class Seq2SeqNoFact(nn.Module):
     '''
     Proposed seq2seq model in "Learning to Recommend Signal Plans under Incidents with Real-Time Traffic Prediction"
     We use it here as a baseline method
     '''
     def __init__(self, args):
-        super(TrafficSeq2Seq, self).__init__()
+        super(Seq2SeqNoFact, self).__init__()
         self.args = args
         self.encoder = EncoderRNN(args=args)
         self.decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")
@@ -203,8 +297,8 @@ class TrafficSeq2Seq(nn.Module):
     def forward(self, x, target):
         '''
         INPUTs
-            x: input, (batch_size, in_seq_len, indim)
-            target: (batch_size, out_seq_len, out_dim), for TrafficSeq2Seq, the entries in the last dimension is speed data
+            x: input, (batch_size, in_seq_len, in_dim)
+            target: (batch_size, out_seq_len, out_dim), for Seq2SeqNoFact, the entries in the last dimension is speed data
 
         OUTPUTs
             dec_out: (batch_size, out_seq_len, out_dim)  
@@ -225,10 +319,10 @@ class TrafficSeq2Seq(nn.Module):
 
         return dec_out, dec_hidden, attn_weights
 
-
-class TrafficModel(nn.Module):
+# 2. Sequence-to-sequence Model with Factorization
+class Seq2SeqFact(nn.Module):
     def __init__(self, args):
-        super(TrafficModel, self).__init__()
+        super(Seq2SeqFact, self).__init__()
         self.args = args
         self.encoder = EncoderRNN(args=args)
 
@@ -243,7 +337,8 @@ class TrafficModel(nn.Module):
             target: (batch_size, out_seq_len + 1, out_dim, 2), the last dimension refers to 1. speed and 2. incident status 
 
         OUTPUTs
-            speed_pred: speed prediction, (batch_size, out_seq_len, out_dim), entries along last dimension are speed predictions
+            LR_out: incident status prediction, (batch_size, out_seq_len, out_dim)
+            speed_pred: speed prediction, (batch_size, out_seq_len, out_dim or 3*out_dim)
             xxx_attn_weights: (batch_size, out_seq_len, in_seq_len)
         '''
         batch_size = x.size(0)
@@ -297,6 +392,96 @@ class TrafficModel(nn.Module):
             return nonrec_out, nonrec_hidden, nonrec_attn_weights
         else:
             return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
+
+# 3. Transformer Model without Factorization
+class TransNoFact(nn.Module):
+    def __init__(self, args):
+        super(TransNoFact, self).__init__()
+        self.encoder = EncoderTrans(args)
+        self.decoder = DecoderMLP(args, "R")
+        self.args = args
+    
+    def forward(self, x, target):
+        '''
+        INPUTs
+            x: input, (batch_size, in_seq_len, in_dim)
+
+        OUTPUTs
+            dec_out: (batch_size, out_seq_len, out_dim or 3*out_dim)  
+        '''
+        enc_out = self.encoder(x)  # (batch_size, in_seq_len, in_dim)
+        dec_out = self.decoder(enc_out)
+
+        return dec_out
+
+
+# 4. Transformer Model with Factorization
+class TransFact(nn.Module):
+    def __init__(self, args):
+        super(Seq2SeqFact, self).__init__()
+        self.args = args
+        self.encoder = EncoderTrans(args=args)
+
+        self.LR_decoder = DecoderMLP(args=args, dec_type="LR")  # decoder for incident prediction (logistic regression)
+        self.rec_decoder = DecoderMLP(args=args, dec_type="Non_LR")  # decoder for speed prediction in recurrent scenario
+        self.nonrec_decoder = DecoderMLP(args=args, dec_type="Non_LR")  # decoder for speed prediction in non-recurrent scenario
+    
+    def forward(self, x, target):
+        '''
+        INPUTs
+            x: input, (batch_size, in_seq_len, in_dim)
+            target: (batch_size, out_seq_len + 1, out_dim, 2), the last dimension refers to 1. speed and 2. incident status 
+
+        OUTPUTs
+            LR_out: incident status prediction, (batch_size, out_seq_len, out_dim)
+            speed_pred: speed prediction, (batch_size, out_seq_len, out_dim or 3*out_dim)
+        '''
+
+        # pass into encoder
+        enc_out = self.encoder(x)  # (batch_size, in_seq_len, in_dim)
+
+        # pass into decoder
+        '''
+        xxx_dec_out: (batch_size, out_seq_len, out_dim)  
+        '''
+        LR_out = self.LR_decoder(enc_out)
+        rec_out = self.rec_decoder(enc_out)
+        nonrec_out = self.nonrec_decoder(enc_out)
+
+        if self.args.gt_type == "tmc":
+            # generate final speed prediction
+            if self.args.use_gt_inc:  
+                # use ground truth incident prediction as 0-1 mask
+                speed_pred = rec_out * (target[..., 3].repeat(1,1,3) <= 0.5) + nonrec_out * (target[..., 3].repeat(1,1,3) > 0.5)
+            else:
+                if self.args.use_expectation:
+                    # compute speed prediction as expectation
+                    rec_weight = torch.ones(LR_out.repeat(1,1,3).size()).to(self.args.device) - LR_out.repeat(1,1,3)
+                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out.repeat(1,1,3) 
+                else:
+                    # compute speed prediction based on predicted 0-1 mask
+                    speed_pred = rec_out * (LR_out.repeat(1,1,3) <= self.args.inc_threshold) + nonrec_out * (LR_out.repeat(1,1,3) > self.args.inc_threshold)
+       
+        else:
+            # generate final speed prediction
+            if self.args.use_gt_inc:
+                    speed_pred = rec_out * (target[..., 1] <= 0.5) + nonrec_out * (target[..., 1] > 0.5)
+            else:
+                if self.args.use_expectation:
+                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
+                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                else:
+                    speed_pred = rec_out * (LR_out <= self.args.inc_threshold) + nonrec_out * (LR_out > self.args.inc_threshold)
+
+
+        if self.args.task == "LR":
+            return LR_out
+        elif self.args.task == "rec":
+            return rec_out
+        elif self.args.task == "nonrec":
+            return nonrec_out
+        else:
+            return speed_pred, LR_out
 
 
 
