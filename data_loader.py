@@ -11,10 +11,10 @@ class TrafficData(Dataset):
     def __init__(self, args):
         self.args = args  
         
-        X_path = f"{self.args.data_dir}/new_X.npy"  # store sequence features frequency of 5 min
-        Y_path = f"{self.args.data_dir}/new_Y_{args.gt_type}.npy"  # store true speed & incident data in frequency of 1 min (XD) or 5 min (TMC)
+        X_path = f"{self.args.data_dir}/new_X_v2.npy"  # store sequence features frequency of 5 min
+        Y_path = f"{self.args.data_dir}/new_Y_v2.npy"  # store true speed & incident data in frequency of 1 min (XD) or 5 min (TMC)
 
-        self.all_X = torch.from_numpy(np.load(X_path)).float()  # (29520, feat_dim)
+        self.all_X = torch.from_numpy(np.load(X_path)).float()  # (21060, feat_dim)
 
         # For new_Y_xd: (5*29520, num_seg, 2) the last dimension refers to 1. speed and 2. incident status
         # For new_Y_tmc: (29520, num_seg, 4), the last dimension refers to 1. all speed, 2. truck speed, 3. personal vehicle speed, and 4. incident status

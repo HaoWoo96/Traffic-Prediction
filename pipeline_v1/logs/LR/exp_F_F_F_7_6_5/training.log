@@ -1,0 +1,488 @@
+07/18/2022 03:46:22 AM ******************************************* COMMAND LINE *******************************************
+07/18/2022 03:46:22 AM train.py --task LR --lr 0.0005
+
+07/18/2022 03:46:22 AM ************************************** EXPERIMENT INFORMATION **************************************
+07/18/2022 03:46:22 AM Task: LR
+07/18/2022 03:46:22 AM Experiment Name: exp_F_F_F_7_6_5
+07/18/2022 03:46:22 AM Number of Epochs: 401, Learning Rate: 0.0005, Batch Size: 32 
+
+07/18/2022 03:46:22 AM ***************************************** DATA INFORMATION *****************************************
+07/18/2022 03:46:22 AM Use Density: False; Use Truck Speed: False; Use Personal Vehicle Speed: False
+07/18/2022 03:46:22 AM Input Sequence Length: 7; Output Sequence Lenth: 6; Output Frequency: 5 
+
+07/18/2022 03:46:22 AM ***************************************** LOADING PROGRESS *****************************************
+07/18/2022 03:46:22 AM successfully loaded data 
+
+07/18/2022 03:46:22 AM ========================================= Training Starts ==========================================
+07/18/2022 03:46:22 AM please check tensorboard for plots of experiment ./logs/LR/exp_F_F_F_7_6_5
+07/18/2022 03:46:22 AM please check logging messages at ./logs/LR/exp_F_F_F_7_6_5/training.log
+07/18/2022 03:47:09 AM epoch: 0   train loss (per batch): 0.0518   test loss (per batch): 0.0392
+07/18/2022 03:47:09 AM checkpoint saved at epoch 0
+07/18/2022 03:47:09 AM best model saved at epoch 0
+07/18/2022 03:47:55 AM epoch: 1   train loss (per batch): 0.0397   test loss (per batch): 0.0327
+07/18/2022 03:47:55 AM best model saved at epoch 1
+07/18/2022 03:48:42 AM epoch: 2   train loss (per batch): 0.0339   test loss (per batch): 0.0314
+07/18/2022 03:48:42 AM best model saved at epoch 2
+07/18/2022 03:49:31 AM epoch: 3   train loss (per batch): 0.0300   test loss (per batch): 0.0269
+07/18/2022 03:49:31 AM best model saved at epoch 3
+07/18/2022 03:50:22 AM epoch: 4   train loss (per batch): 0.0262   test loss (per batch): 0.0245
+07/18/2022 03:50:22 AM best model saved at epoch 4
+07/18/2022 03:51:14 AM epoch: 5   train loss (per batch): 0.0236   test loss (per batch): 0.0220
+07/18/2022 03:51:14 AM best model saved at epoch 5
+07/18/2022 03:52:05 AM epoch: 6   train loss (per batch): 0.0211   test loss (per batch): 0.0196
+07/18/2022 03:52:05 AM best model saved at epoch 6
+07/18/2022 03:52:56 AM epoch: 7   train loss (per batch): 0.0188   test loss (per batch): 0.0181
+07/18/2022 03:52:56 AM best model saved at epoch 7
+07/18/2022 03:53:48 AM epoch: 8   train loss (per batch): 0.0171   test loss (per batch): 0.0172
+07/18/2022 03:53:48 AM best model saved at epoch 8
+07/18/2022 03:54:40 AM epoch: 9   train loss (per batch): 0.0156   test loss (per batch): 0.0156
+07/18/2022 03:54:40 AM best model saved at epoch 9
+07/18/2022 03:55:32 AM epoch: 10   train loss (per batch): 0.0142   test loss (per batch): 0.0142
+07/18/2022 03:55:32 AM checkpoint saved at epoch 10
+07/18/2022 03:55:32 AM best model saved at epoch 10
+07/18/2022 03:56:25 AM epoch: 11   train loss (per batch): 0.0128   test loss (per batch): 0.0140
+07/18/2022 03:56:25 AM best model saved at epoch 11
+07/18/2022 03:57:17 AM epoch: 12   train loss (per batch): 0.0118   test loss (per batch): 0.0121
+07/18/2022 03:57:17 AM best model saved at epoch 12
+07/18/2022 03:58:10 AM epoch: 13   train loss (per batch): 0.0108   test loss (per batch): 0.0113
+07/18/2022 03:58:10 AM best model saved at epoch 13
+07/18/2022 03:59:03 AM epoch: 14   train loss (per batch): 0.0098   test loss (per batch): 0.0117
+07/18/2022 03:59:56 AM epoch: 15   train loss (per batch): 0.0093   test loss (per batch): 0.0107
+07/18/2022 03:59:56 AM best model saved at epoch 15
+07/18/2022 04:00:50 AM epoch: 16   train loss (per batch): 0.0082   test loss (per batch): 0.0098
+07/18/2022 04:00:50 AM best model saved at epoch 16
+07/18/2022 04:01:44 AM epoch: 17   train loss (per batch): 0.0078   test loss (per batch): 0.0094
+07/18/2022 04:01:44 AM best model saved at epoch 17
+07/18/2022 04:02:39 AM epoch: 18   train loss (per batch): 0.0071   test loss (per batch): 0.0090
+07/18/2022 04:02:39 AM best model saved at epoch 18
+07/18/2022 04:03:34 AM epoch: 19   train loss (per batch): 0.0068   test loss (per batch): 0.0086
+07/18/2022 04:03:34 AM best model saved at epoch 19
+07/18/2022 04:04:32 AM epoch: 20   train loss (per batch): 0.0062   test loss (per batch): 0.0082
+07/18/2022 04:04:32 AM checkpoint saved at epoch 20
+07/18/2022 04:04:32 AM best model saved at epoch 20
+07/18/2022 04:05:29 AM epoch: 21   train loss (per batch): 0.0060   test loss (per batch): 0.0080
+07/18/2022 04:05:29 AM best model saved at epoch 21
+07/18/2022 04:06:26 AM epoch: 22   train loss (per batch): 0.0055   test loss (per batch): 0.0081
+07/18/2022 04:07:24 AM epoch: 23   train loss (per batch): 0.0052   test loss (per batch): 0.0075
+07/18/2022 04:07:24 AM best model saved at epoch 23
+07/18/2022 04:08:23 AM epoch: 24   train loss (per batch): 0.0053   test loss (per batch): 0.0074
+07/18/2022 04:08:23 AM best model saved at epoch 24
+07/18/2022 04:09:22 AM epoch: 25   train loss (per batch): 0.0048   test loss (per batch): 0.0067
+07/18/2022 04:09:22 AM best model saved at epoch 25
+07/18/2022 04:10:21 AM epoch: 26   train loss (per batch): 0.0046   test loss (per batch): 0.0068
+07/18/2022 04:11:22 AM epoch: 27   train loss (per batch): 0.0045   test loss (per batch): 0.0068
+07/18/2022 04:12:23 AM epoch: 28   train loss (per batch): 0.0043   test loss (per batch): 0.0068
+07/18/2022 04:13:38 AM epoch: 29   train loss (per batch): 0.0042   test loss (per batch): 0.0071
+07/18/2022 04:14:53 AM epoch: 30   train loss (per batch): 0.0039   test loss (per batch): 0.0065
+07/18/2022 04:14:53 AM checkpoint saved at epoch 30
+07/18/2022 04:14:53 AM best model saved at epoch 30
+07/18/2022 04:16:08 AM epoch: 31   train loss (per batch): 0.0039   test loss (per batch): 0.0067
+07/18/2022 04:17:24 AM epoch: 32   train loss (per batch): 0.0037   test loss (per batch): 0.0069
+07/18/2022 04:18:41 AM epoch: 33   train loss (per batch): 0.0036   test loss (per batch): 0.0069
+07/18/2022 04:19:58 AM epoch: 34   train loss (per batch): 0.0035   test loss (per batch): 0.0068
+07/18/2022 04:21:15 AM epoch: 35   train loss (per batch): 0.0035   test loss (per batch): 0.0059
+07/18/2022 04:21:15 AM best model saved at epoch 35
+07/18/2022 04:22:21 AM epoch: 36   train loss (per batch): 0.0034   test loss (per batch): 0.0063
+07/18/2022 04:23:25 AM epoch: 37   train loss (per batch): 0.0034   test loss (per batch): 0.0068
+07/18/2022 04:24:31 AM epoch: 38   train loss (per batch): 0.0030   test loss (per batch): 0.0067
+07/18/2022 04:25:35 AM epoch: 39   train loss (per batch): 0.0031   test loss (per batch): 0.0068
+07/18/2022 04:26:39 AM epoch: 40   train loss (per batch): 0.0030   test loss (per batch): 0.0065
+07/18/2022 04:26:39 AM checkpoint saved at epoch 40
+07/18/2022 04:27:41 AM epoch: 41   train loss (per batch): 0.0029   test loss (per batch): 0.0062
+07/18/2022 04:28:44 AM epoch: 42   train loss (per batch): 0.0029   test loss (per batch): 0.0073
+07/18/2022 04:29:47 AM epoch: 43   train loss (per batch): 0.0028   test loss (per batch): 0.0061
+07/18/2022 04:30:51 AM epoch: 44   train loss (per batch): 0.0027   test loss (per batch): 0.0067
+07/18/2022 04:31:52 AM epoch: 45   train loss (per batch): 0.0027   test loss (per batch): 0.0058
+07/18/2022 04:31:52 AM best model saved at epoch 45
+07/18/2022 04:32:57 AM epoch: 46   train loss (per batch): 0.0026   test loss (per batch): 0.0066
+07/18/2022 04:34:03 AM epoch: 47   train loss (per batch): 0.0026   test loss (per batch): 0.0065
+07/18/2022 04:35:07 AM epoch: 48   train loss (per batch): 0.0025   test loss (per batch): 0.0069
+07/18/2022 04:36:10 AM epoch: 49   train loss (per batch): 0.0025   test loss (per batch): 0.0060
+07/18/2022 04:37:25 AM epoch: 50   train loss (per batch): 0.0025   test loss (per batch): 0.0072
+07/18/2022 04:37:25 AM checkpoint saved at epoch 50
+07/18/2022 04:38:41 AM epoch: 51   train loss (per batch): 0.0024   test loss (per batch): 0.0063
+07/18/2022 04:39:57 AM epoch: 52   train loss (per batch): 0.0022   test loss (per batch): 0.0060
+07/18/2022 04:41:09 AM epoch: 53   train loss (per batch): 0.0024   test loss (per batch): 0.0071
+07/18/2022 04:42:24 AM epoch: 54   train loss (per batch): 0.0022   test loss (per batch): 0.0063
+07/18/2022 04:43:38 AM epoch: 55   train loss (per batch): 0.0023   test loss (per batch): 0.0064
+07/18/2022 04:44:53 AM epoch: 56   train loss (per batch): 0.0021   test loss (per batch): 0.0069
+07/18/2022 04:46:05 AM epoch: 57   train loss (per batch): 0.0022   test loss (per batch): 0.0063
+07/18/2022 04:47:19 AM epoch: 58   train loss (per batch): 0.0021   test loss (per batch): 0.0061
+07/18/2022 04:48:19 AM epoch: 59   train loss (per batch): 0.0020   test loss (per batch): 0.0066
+07/18/2022 04:49:22 AM epoch: 60   train loss (per batch): 0.0021   test loss (per batch): 0.0062
+07/18/2022 04:49:22 AM checkpoint saved at epoch 60
+07/18/2022 04:50:23 AM epoch: 61   train loss (per batch): 0.0021   test loss (per batch): 0.0064
+07/18/2022 04:51:26 AM epoch: 62   train loss (per batch): 0.0020   test loss (per batch): 0.0064
+07/18/2022 04:52:26 AM epoch: 63   train loss (per batch): 0.0018   test loss (per batch): 0.0062
+07/18/2022 04:53:29 AM epoch: 64   train loss (per batch): 0.0019   test loss (per batch): 0.0065
+07/18/2022 04:54:29 AM epoch: 65   train loss (per batch): 0.0019   test loss (per batch): 0.0060
+07/18/2022 04:55:31 AM epoch: 66   train loss (per batch): 0.0019   test loss (per batch): 0.0065
+07/18/2022 04:56:30 AM epoch: 67   train loss (per batch): 0.0019   test loss (per batch): 0.0068
+07/18/2022 04:57:31 AM epoch: 68   train loss (per batch): 0.0018   test loss (per batch): 0.0064
+07/18/2022 04:58:31 AM epoch: 69   train loss (per batch): 0.0018   test loss (per batch): 0.0068
+07/18/2022 04:59:32 AM epoch: 70   train loss (per batch): 0.0017   test loss (per batch): 0.0066
+07/18/2022 04:59:32 AM checkpoint saved at epoch 70
+07/18/2022 05:00:31 AM epoch: 71   train loss (per batch): 0.0018   test loss (per batch): 0.0065
+07/18/2022 05:01:33 AM epoch: 72   train loss (per batch): 0.0016   test loss (per batch): 0.0067
+07/18/2022 05:02:33 AM epoch: 73   train loss (per batch): 0.0017   test loss (per batch): 0.0066
+07/18/2022 05:03:34 AM epoch: 74   train loss (per batch): 0.0016   test loss (per batch): 0.0068
+07/18/2022 05:04:35 AM epoch: 75   train loss (per batch): 0.0016   test loss (per batch): 0.0071
+07/18/2022 05:05:36 AM epoch: 76   train loss (per batch): 0.0015   test loss (per batch): 0.0066
+07/18/2022 05:06:35 AM epoch: 77   train loss (per batch): 0.0016   test loss (per batch): 0.0067
+07/18/2022 05:07:36 AM epoch: 78   train loss (per batch): 0.0016   test loss (per batch): 0.0073
+07/18/2022 05:08:36 AM epoch: 79   train loss (per batch): 0.0015   test loss (per batch): 0.0067
+07/18/2022 05:09:37 AM epoch: 80   train loss (per batch): 0.0016   test loss (per batch): 0.0069
+07/18/2022 05:09:37 AM checkpoint saved at epoch 80
+07/18/2022 05:10:36 AM epoch: 81   train loss (per batch): 0.0016   test loss (per batch): 0.0069
+07/18/2022 05:11:37 AM epoch: 82   train loss (per batch): 0.0015   test loss (per batch): 0.0067
+07/18/2022 05:12:39 AM epoch: 83   train loss (per batch): 0.0015   test loss (per batch): 0.0065
+07/18/2022 05:13:40 AM epoch: 84   train loss (per batch): 0.0014   test loss (per batch): 0.0070
+07/18/2022 05:14:41 AM epoch: 85   train loss (per batch): 0.0014   test loss (per batch): 0.0070
+07/18/2022 05:15:43 AM epoch: 86   train loss (per batch): 0.0014   test loss (per batch): 0.0072
+07/18/2022 05:16:45 AM epoch: 87   train loss (per batch): 0.0015   test loss (per batch): 0.0069
+07/18/2022 05:17:47 AM epoch: 88   train loss (per batch): 0.0014   test loss (per batch): 0.0072
+07/18/2022 05:18:48 AM epoch: 89   train loss (per batch): 0.0013   test loss (per batch): 0.0070
+07/18/2022 05:19:50 AM epoch: 90   train loss (per batch): 0.0013   test loss (per batch): 0.0074
+07/18/2022 05:19:50 AM checkpoint saved at epoch 90
+07/18/2022 05:20:50 AM epoch: 91   train loss (per batch): 0.0014   test loss (per batch): 0.0070
+07/18/2022 05:21:51 AM epoch: 92   train loss (per batch): 0.0013   test loss (per batch): 0.0072
+07/18/2022 05:22:51 AM epoch: 93   train loss (per batch): 0.0014   test loss (per batch): 0.0071
+07/18/2022 05:23:52 AM epoch: 94   train loss (per batch): 0.0013   test loss (per batch): 0.0069
+07/18/2022 05:24:54 AM epoch: 95   train loss (per batch): 0.0012   test loss (per batch): 0.0070
+07/18/2022 05:25:56 AM epoch: 96   train loss (per batch): 0.0014   test loss (per batch): 0.0078
+07/18/2022 05:26:58 AM epoch: 97   train loss (per batch): 0.0014   test loss (per batch): 0.0074
+07/18/2022 05:27:58 AM epoch: 98   train loss (per batch): 0.0012   test loss (per batch): 0.0069
+07/18/2022 05:28:58 AM epoch: 99   train loss (per batch): 0.0012   test loss (per batch): 0.0071
+07/18/2022 05:30:00 AM epoch: 100   train loss (per batch): 0.0014   test loss (per batch): 0.0076
+07/18/2022 05:30:00 AM checkpoint saved at epoch 100
+07/18/2022 05:31:02 AM epoch: 101   train loss (per batch): 0.0012   test loss (per batch): 0.0074
+07/18/2022 05:32:04 AM epoch: 102   train loss (per batch): 0.0012   test loss (per batch): 0.0071
+07/18/2022 05:33:04 AM epoch: 103   train loss (per batch): 0.0012   test loss (per batch): 0.0071
+07/18/2022 05:34:06 AM epoch: 104   train loss (per batch): 0.0011   test loss (per batch): 0.0071
+07/18/2022 05:35:08 AM epoch: 105   train loss (per batch): 0.0011   test loss (per batch): 0.0077
+07/18/2022 05:36:10 AM epoch: 106   train loss (per batch): 0.0012   test loss (per batch): 0.0077
+07/18/2022 05:37:11 AM epoch: 107   train loss (per batch): 0.0013   test loss (per batch): 0.0074
+07/18/2022 05:38:13 AM epoch: 108   train loss (per batch): 0.0011   test loss (per batch): 0.0074
+07/18/2022 05:39:13 AM epoch: 109   train loss (per batch): 0.0011   test loss (per batch): 0.0076
+07/18/2022 05:40:16 AM epoch: 110   train loss (per batch): 0.0011   test loss (per batch): 0.0076
+07/18/2022 05:40:16 AM checkpoint saved at epoch 110
+07/18/2022 05:41:16 AM epoch: 111   train loss (per batch): 0.0011   test loss (per batch): 0.0077
+07/18/2022 05:42:19 AM epoch: 112   train loss (per batch): 0.0010   test loss (per batch): 0.0076
+07/18/2022 05:43:18 AM epoch: 113   train loss (per batch): 0.0011   test loss (per batch): 0.0077
+07/18/2022 05:44:20 AM epoch: 114   train loss (per batch): 0.0012   test loss (per batch): 0.0075
+07/18/2022 05:45:21 AM epoch: 115   train loss (per batch): 0.0010   test loss (per batch): 0.0080
+07/18/2022 05:46:24 AM epoch: 116   train loss (per batch): 0.0010   test loss (per batch): 0.0077
+07/18/2022 05:47:26 AM epoch: 117   train loss (per batch): 0.0010   test loss (per batch): 0.0078
+07/18/2022 05:48:29 AM epoch: 118   train loss (per batch): 0.0010   test loss (per batch): 0.0084
+07/18/2022 05:49:31 AM epoch: 119   train loss (per batch): 0.0010   test loss (per batch): 0.0078
+07/18/2022 05:50:36 AM epoch: 120   train loss (per batch): 0.0010   test loss (per batch): 0.0079
+07/18/2022 05:50:36 AM checkpoint saved at epoch 120
+07/18/2022 05:51:37 AM epoch: 121   train loss (per batch): 0.0010   test loss (per batch): 0.0081
+07/18/2022 05:52:39 AM epoch: 122   train loss (per batch): 0.0011   test loss (per batch): 0.0079
+07/18/2022 05:53:40 AM epoch: 123   train loss (per batch): 0.0009   test loss (per batch): 0.0076
+07/18/2022 05:54:42 AM epoch: 124   train loss (per batch): 0.0010   test loss (per batch): 0.0092
+07/18/2022 05:55:46 AM epoch: 125   train loss (per batch): 0.0010   test loss (per batch): 0.0082
+07/18/2022 05:56:49 AM epoch: 126   train loss (per batch): 0.0010   test loss (per batch): 0.0079
+07/18/2022 05:57:50 AM epoch: 127   train loss (per batch): 0.0010   test loss (per batch): 0.0085
+07/18/2022 05:58:53 AM epoch: 128   train loss (per batch): 0.0010   test loss (per batch): 0.0085
+07/18/2022 05:59:54 AM epoch: 129   train loss (per batch): 0.0010   test loss (per batch): 0.0079
+07/18/2022 06:00:57 AM epoch: 130   train loss (per batch): 0.0009   test loss (per batch): 0.0079
+07/18/2022 06:00:57 AM checkpoint saved at epoch 130
+07/18/2022 06:01:58 AM epoch: 131   train loss (per batch): 0.0010   test loss (per batch): 0.0083
+07/18/2022 06:03:00 AM epoch: 132   train loss (per batch): 0.0010   test loss (per batch): 0.0084
+07/18/2022 06:04:01 AM epoch: 133   train loss (per batch): 0.0009   test loss (per batch): 0.0082
+07/18/2022 06:05:04 AM epoch: 134   train loss (per batch): 0.0009   test loss (per batch): 0.0079
+07/18/2022 06:06:07 AM epoch: 135   train loss (per batch): 0.0010   test loss (per batch): 0.0086
+07/18/2022 06:07:12 AM epoch: 136   train loss (per batch): 0.0009   test loss (per batch): 0.0082
+07/18/2022 06:08:13 AM epoch: 137   train loss (per batch): 0.0009   test loss (per batch): 0.0082
+07/18/2022 06:09:17 AM epoch: 138   train loss (per batch): 0.0009   test loss (per batch): 0.0088
+07/18/2022 06:10:20 AM epoch: 139   train loss (per batch): 0.0009   test loss (per batch): 0.0085
+07/18/2022 06:11:22 AM epoch: 140   train loss (per batch): 0.0008   test loss (per batch): 0.0082
+07/18/2022 06:11:22 AM checkpoint saved at epoch 140
+07/18/2022 06:12:23 AM epoch: 141   train loss (per batch): 0.0009   test loss (per batch): 0.0088
+07/18/2022 06:13:26 AM epoch: 142   train loss (per batch): 0.0008   test loss (per batch): 0.0089
+07/18/2022 06:14:27 AM epoch: 143   train loss (per batch): 0.0009   test loss (per batch): 0.0089
+07/18/2022 06:15:31 AM epoch: 144   train loss (per batch): 0.0009   test loss (per batch): 0.0079
+07/18/2022 06:16:32 AM epoch: 145   train loss (per batch): 0.0009   test loss (per batch): 0.0090
+07/18/2022 06:17:36 AM epoch: 146   train loss (per batch): 0.0008   test loss (per batch): 0.0084
+07/18/2022 06:18:39 AM epoch: 147   train loss (per batch): 0.0008   test loss (per batch): 0.0084
+07/18/2022 06:19:42 AM epoch: 148   train loss (per batch): 0.0008   test loss (per batch): 0.0091
+07/18/2022 06:20:44 AM epoch: 149   train loss (per batch): 0.0009   test loss (per batch): 0.0087
+07/18/2022 06:21:46 AM epoch: 150   train loss (per batch): 0.0008   test loss (per batch): 0.0091
+07/18/2022 06:21:46 AM checkpoint saved at epoch 150
+07/18/2022 06:22:46 AM epoch: 151   train loss (per batch): 0.0009   test loss (per batch): 0.0089
+07/18/2022 06:23:48 AM epoch: 152   train loss (per batch): 0.0009   test loss (per batch): 0.0086
+07/18/2022 06:24:48 AM epoch: 153   train loss (per batch): 0.0008   test loss (per batch): 0.0088
+07/18/2022 06:25:51 AM epoch: 154   train loss (per batch): 0.0008   test loss (per batch): 0.0090
+07/18/2022 06:26:51 AM epoch: 155   train loss (per batch): 0.0009   test loss (per batch): 0.0089
+07/18/2022 06:27:53 AM epoch: 156   train loss (per batch): 0.0008   test loss (per batch): 0.0085
+07/18/2022 06:28:52 AM epoch: 157   train loss (per batch): 0.0007   test loss (per batch): 0.0083
+07/18/2022 06:29:55 AM epoch: 158   train loss (per batch): 0.0008   test loss (per batch): 0.0093
+07/18/2022 06:30:55 AM epoch: 159   train loss (per batch): 0.0009   test loss (per batch): 0.0094
+07/18/2022 06:31:58 AM epoch: 160   train loss (per batch): 0.0007   test loss (per batch): 0.0090
+07/18/2022 06:31:58 AM checkpoint saved at epoch 160
+07/18/2022 06:32:59 AM epoch: 161   train loss (per batch): 0.0008   test loss (per batch): 0.0089
+07/18/2022 06:34:01 AM epoch: 162   train loss (per batch): 0.0009   test loss (per batch): 0.0089
+07/18/2022 06:35:01 AM epoch: 163   train loss (per batch): 0.0007   test loss (per batch): 0.0084
+07/18/2022 06:36:04 AM epoch: 164   train loss (per batch): 0.0008   test loss (per batch): 0.0093
+07/18/2022 06:37:04 AM epoch: 165   train loss (per batch): 0.0009   test loss (per batch): 0.0087
+07/18/2022 06:38:07 AM epoch: 166   train loss (per batch): 0.0007   test loss (per batch): 0.0092
+07/18/2022 06:39:08 AM epoch: 167   train loss (per batch): 0.0008   test loss (per batch): 0.0086
+07/18/2022 06:40:09 AM epoch: 168   train loss (per batch): 0.0008   test loss (per batch): 0.0096
+07/18/2022 06:41:07 AM epoch: 169   train loss (per batch): 0.0007   test loss (per batch): 0.0087
+07/18/2022 06:42:10 AM epoch: 170   train loss (per batch): 0.0007   test loss (per batch): 0.0097
+07/18/2022 06:42:10 AM checkpoint saved at epoch 170
+07/18/2022 06:43:11 AM epoch: 171   train loss (per batch): 0.0007   test loss (per batch): 0.0094
+07/18/2022 06:44:13 AM epoch: 172   train loss (per batch): 0.0007   test loss (per batch): 0.0088
+07/18/2022 06:45:12 AM epoch: 173   train loss (per batch): 0.0007   test loss (per batch): 0.0095
+07/18/2022 06:46:14 AM epoch: 174   train loss (per batch): 0.0009   test loss (per batch): 0.0087
+07/18/2022 06:47:14 AM epoch: 175   train loss (per batch): 0.0007   test loss (per batch): 0.0095
+07/18/2022 06:48:16 AM epoch: 176   train loss (per batch): 0.0007   test loss (per batch): 0.0107
+07/18/2022 06:49:16 AM epoch: 177   train loss (per batch): 0.0009   test loss (per batch): 0.0088
+07/18/2022 06:50:19 AM epoch: 178   train loss (per batch): 0.0006   test loss (per batch): 0.0089
+07/18/2022 06:51:19 AM epoch: 179   train loss (per batch): 0.0006   test loss (per batch): 0.0095
+07/18/2022 06:52:21 AM epoch: 180   train loss (per batch): 0.0008   test loss (per batch): 0.0101
+07/18/2022 06:52:21 AM checkpoint saved at epoch 180
+07/18/2022 06:53:21 AM epoch: 181   train loss (per batch): 0.0007   test loss (per batch): 0.0098
+07/18/2022 06:54:24 AM epoch: 182   train loss (per batch): 0.0008   test loss (per batch): 0.0094
+07/18/2022 06:55:25 AM epoch: 183   train loss (per batch): 0.0007   test loss (per batch): 0.0093
+07/18/2022 06:56:27 AM epoch: 184   train loss (per batch): 0.0006   test loss (per batch): 0.0095
+07/18/2022 06:57:28 AM epoch: 185   train loss (per batch): 0.0006   test loss (per batch): 0.0098
+07/18/2022 06:58:31 AM epoch: 186   train loss (per batch): 0.0008   test loss (per batch): 0.0100
+07/18/2022 06:59:32 AM epoch: 187   train loss (per batch): 0.0008   test loss (per batch): 0.0095
+07/18/2022 07:00:34 AM epoch: 188   train loss (per batch): 0.0007   test loss (per batch): 0.0093
+07/18/2022 07:01:33 AM epoch: 189   train loss (per batch): 0.0006   test loss (per batch): 0.0094
+07/18/2022 07:02:37 AM epoch: 190   train loss (per batch): 0.0008   test loss (per batch): 0.0097
+07/18/2022 07:02:37 AM checkpoint saved at epoch 190
+07/18/2022 07:03:37 AM epoch: 191   train loss (per batch): 0.0007   test loss (per batch): 0.0092
+07/18/2022 07:04:40 AM epoch: 192   train loss (per batch): 0.0006   test loss (per batch): 0.0094
+07/18/2022 07:05:40 AM epoch: 193   train loss (per batch): 0.0006   test loss (per batch): 0.0098
+07/18/2022 07:06:42 AM epoch: 194   train loss (per batch): 0.0007   test loss (per batch): 0.0096
+07/18/2022 07:07:43 AM epoch: 195   train loss (per batch): 0.0007   test loss (per batch): 0.0097
+07/18/2022 07:08:45 AM epoch: 196   train loss (per batch): 0.0006   test loss (per batch): 0.0100
+07/18/2022 07:09:44 AM epoch: 197   train loss (per batch): 0.0007   test loss (per batch): 0.0102
+07/18/2022 07:10:46 AM epoch: 198   train loss (per batch): 0.0007   test loss (per batch): 0.0097
+07/18/2022 07:11:46 AM epoch: 199   train loss (per batch): 0.0006   test loss (per batch): 0.0093
+07/18/2022 07:12:48 AM epoch: 200   train loss (per batch): 0.0007   test loss (per batch): 0.0097
+07/18/2022 07:12:48 AM checkpoint saved at epoch 200
+07/18/2022 07:13:48 AM epoch: 201   train loss (per batch): 0.0007   test loss (per batch): 0.0102
+07/18/2022 07:14:51 AM epoch: 202   train loss (per batch): 0.0007   test loss (per batch): 0.0096
+07/18/2022 07:15:51 AM epoch: 203   train loss (per batch): 0.0006   test loss (per batch): 0.0100
+07/18/2022 07:16:55 AM epoch: 204   train loss (per batch): 0.0006   test loss (per batch): 0.0099
+07/18/2022 07:17:57 AM epoch: 205   train loss (per batch): 0.0006   test loss (per batch): 0.0107
+07/18/2022 07:19:01 AM epoch: 206   train loss (per batch): 0.0007   test loss (per batch): 0.0107
+07/18/2022 07:20:02 AM epoch: 207   train loss (per batch): 0.0007   test loss (per batch): 0.0098
+07/18/2022 07:21:05 AM epoch: 208   train loss (per batch): 0.0006   test loss (per batch): 0.0107
+07/18/2022 07:22:04 AM epoch: 209   train loss (per batch): 0.0007   test loss (per batch): 0.0099
+07/18/2022 07:23:07 AM epoch: 210   train loss (per batch): 0.0006   test loss (per batch): 0.0104
+07/18/2022 07:23:07 AM checkpoint saved at epoch 210
+07/18/2022 07:24:07 AM epoch: 211   train loss (per batch): 0.0007   test loss (per batch): 0.0103
+07/18/2022 07:25:09 AM epoch: 212   train loss (per batch): 0.0006   test loss (per batch): 0.0107
+07/18/2022 07:26:10 AM epoch: 213   train loss (per batch): 0.0007   test loss (per batch): 0.0103
+07/18/2022 07:27:12 AM epoch: 214   train loss (per batch): 0.0006   test loss (per batch): 0.0099
+07/18/2022 07:28:13 AM epoch: 215   train loss (per batch): 0.0006   test loss (per batch): 0.0102
+07/18/2022 07:29:16 AM epoch: 216   train loss (per batch): 0.0007   test loss (per batch): 0.0104
+07/18/2022 07:30:16 AM epoch: 217   train loss (per batch): 0.0006   test loss (per batch): 0.0102
+07/18/2022 07:31:18 AM epoch: 218   train loss (per batch): 0.0007   test loss (per batch): 0.0101
+07/18/2022 07:32:17 AM epoch: 219   train loss (per batch): 0.0006   test loss (per batch): 0.0106
+07/18/2022 07:33:20 AM epoch: 220   train loss (per batch): 0.0008   test loss (per batch): 0.0111
+07/18/2022 07:33:20 AM checkpoint saved at epoch 220
+07/18/2022 07:34:23 AM epoch: 221   train loss (per batch): 0.0007   test loss (per batch): 0.0100
+07/18/2022 07:35:26 AM epoch: 222   train loss (per batch): 0.0005   test loss (per batch): 0.0103
+07/18/2022 07:36:26 AM epoch: 223   train loss (per batch): 0.0005   test loss (per batch): 0.0103
+07/18/2022 07:37:29 AM epoch: 224   train loss (per batch): 0.0006   test loss (per batch): 0.0101
+07/18/2022 07:38:28 AM epoch: 225   train loss (per batch): 0.0006   test loss (per batch): 0.0104
+07/18/2022 07:39:31 AM epoch: 226   train loss (per batch): 0.0007   test loss (per batch): 0.0103
+07/18/2022 07:40:31 AM epoch: 227   train loss (per batch): 0.0007   test loss (per batch): 0.0110
+07/18/2022 07:41:34 AM epoch: 228   train loss (per batch): 0.0006   test loss (per batch): 0.0098
+07/18/2022 07:42:34 AM epoch: 229   train loss (per batch): 0.0005   test loss (per batch): 0.0101
+07/18/2022 07:43:36 AM epoch: 230   train loss (per batch): 0.0006   test loss (per batch): 0.0100
+07/18/2022 07:43:36 AM checkpoint saved at epoch 230
+07/18/2022 07:44:38 AM epoch: 231   train loss (per batch): 0.0005   test loss (per batch): 0.0112
+07/18/2022 07:45:41 AM epoch: 232   train loss (per batch): 0.0006   test loss (per batch): 0.0112
+07/18/2022 07:46:41 AM epoch: 233   train loss (per batch): 0.0007   test loss (per batch): 0.0106
+07/18/2022 07:47:44 AM epoch: 234   train loss (per batch): 0.0006   test loss (per batch): 0.0105
+07/18/2022 07:48:45 AM epoch: 235   train loss (per batch): 0.0006   test loss (per batch): 0.0104
+07/18/2022 07:49:48 AM epoch: 236   train loss (per batch): 0.0006   test loss (per batch): 0.0107
+07/18/2022 07:50:49 AM epoch: 237   train loss (per batch): 0.0006   test loss (per batch): 0.0104
+07/18/2022 07:51:52 AM epoch: 238   train loss (per batch): 0.0006   test loss (per batch): 0.0102
+07/18/2022 07:52:52 AM epoch: 239   train loss (per batch): 0.0005   test loss (per batch): 0.0107
+07/18/2022 07:53:54 AM epoch: 240   train loss (per batch): 0.0005   test loss (per batch): 0.0102
+07/18/2022 07:53:54 AM checkpoint saved at epoch 240
+07/18/2022 07:54:54 AM epoch: 241   train loss (per batch): 0.0006   test loss (per batch): 0.0103
+07/18/2022 07:55:56 AM epoch: 242   train loss (per batch): 0.0006   test loss (per batch): 0.0103
+07/18/2022 07:56:57 AM epoch: 243   train loss (per batch): 0.0006   test loss (per batch): 0.0105
+07/18/2022 07:57:59 AM epoch: 244   train loss (per batch): 0.0006   test loss (per batch): 0.0107
+07/18/2022 07:59:00 AM epoch: 245   train loss (per batch): 0.0006   test loss (per batch): 0.0101
+07/18/2022 08:00:02 AM epoch: 246   train loss (per batch): 0.0005   test loss (per batch): 0.0111
+07/18/2022 08:01:02 AM epoch: 247   train loss (per batch): 0.0006   test loss (per batch): 0.0109
+07/18/2022 08:02:05 AM epoch: 248   train loss (per batch): 0.0006   test loss (per batch): 0.0106
+07/18/2022 08:03:06 AM epoch: 249   train loss (per batch): 0.0006   test loss (per batch): 0.0119
+07/18/2022 08:04:09 AM epoch: 250   train loss (per batch): 0.0006   test loss (per batch): 0.0109
+07/18/2022 08:04:09 AM checkpoint saved at epoch 250
+07/18/2022 08:05:11 AM epoch: 251   train loss (per batch): 0.0007   test loss (per batch): 0.0103
+07/18/2022 08:06:13 AM epoch: 252   train loss (per batch): 0.0006   test loss (per batch): 0.0104
+07/18/2022 08:07:14 AM epoch: 253   train loss (per batch): 0.0005   test loss (per batch): 0.0103
+07/18/2022 08:08:16 AM epoch: 254   train loss (per batch): 0.0004   test loss (per batch): 0.0104
+07/18/2022 08:09:17 AM epoch: 255   train loss (per batch): 0.0006   test loss (per batch): 0.0111
+07/18/2022 08:10:19 AM epoch: 256   train loss (per batch): 0.0007   test loss (per batch): 0.0115
+07/18/2022 08:11:19 AM epoch: 257   train loss (per batch): 0.0006   test loss (per batch): 0.0102
+07/18/2022 08:12:21 AM epoch: 258   train loss (per batch): 0.0005   test loss (per batch): 0.0110
+07/18/2022 08:13:21 AM epoch: 259   train loss (per batch): 0.0005   test loss (per batch): 0.0112
+07/18/2022 08:14:23 AM epoch: 260   train loss (per batch): 0.0005   test loss (per batch): 0.0107
+07/18/2022 08:14:23 AM checkpoint saved at epoch 260
+07/18/2022 08:15:25 AM epoch: 261   train loss (per batch): 0.0006   test loss (per batch): 0.0106
+07/18/2022 08:16:28 AM epoch: 262   train loss (per batch): 0.0007   test loss (per batch): 0.0106
+07/18/2022 08:17:30 AM epoch: 263   train loss (per batch): 0.0006   test loss (per batch): 0.0100
+07/18/2022 08:18:32 AM epoch: 264   train loss (per batch): 0.0006   test loss (per batch): 0.0111
+07/18/2022 08:19:33 AM epoch: 265   train loss (per batch): 0.0005   test loss (per batch): 0.0109
+07/18/2022 08:20:34 AM epoch: 266   train loss (per batch): 0.0006   test loss (per batch): 0.0111
+07/18/2022 08:21:36 AM epoch: 267   train loss (per batch): 0.0006   test loss (per batch): 0.0105
+07/18/2022 08:22:38 AM epoch: 268   train loss (per batch): 0.0005   test loss (per batch): 0.0109
+07/18/2022 08:23:40 AM epoch: 269   train loss (per batch): 0.0005   test loss (per batch): 0.0108
+07/18/2022 08:24:41 AM epoch: 270   train loss (per batch): 0.0006   test loss (per batch): 0.0111
+07/18/2022 08:24:41 AM checkpoint saved at epoch 270
+07/18/2022 08:25:41 AM epoch: 271   train loss (per batch): 0.0006   test loss (per batch): 0.0106
+07/18/2022 08:26:43 AM epoch: 272   train loss (per batch): 0.0005   test loss (per batch): 0.0111
+07/18/2022 08:27:44 AM epoch: 273   train loss (per batch): 0.0004   test loss (per batch): 0.0111
+07/18/2022 08:28:46 AM epoch: 274   train loss (per batch): 0.0006   test loss (per batch): 0.0121
+07/18/2022 08:29:44 AM epoch: 275   train loss (per batch): 0.0006   test loss (per batch): 0.0107
+07/18/2022 08:30:43 AM epoch: 276   train loss (per batch): 0.0005   test loss (per batch): 0.0105
+07/18/2022 08:31:42 AM epoch: 277   train loss (per batch): 0.0005   test loss (per batch): 0.0111
+07/18/2022 08:32:41 AM epoch: 278   train loss (per batch): 0.0006   test loss (per batch): 0.0109
+07/18/2022 08:33:43 AM epoch: 279   train loss (per batch): 0.0005   test loss (per batch): 0.0118
+07/18/2022 08:34:43 AM epoch: 280   train loss (per batch): 0.0006   test loss (per batch): 0.0112
+07/18/2022 08:34:43 AM checkpoint saved at epoch 280
+07/18/2022 08:35:42 AM epoch: 281   train loss (per batch): 0.0006   test loss (per batch): 0.0109
+07/18/2022 08:36:41 AM epoch: 282   train loss (per batch): 0.0006   test loss (per batch): 0.0115
+07/18/2022 08:37:39 AM epoch: 283   train loss (per batch): 0.0006   test loss (per batch): 0.0119
+07/18/2022 08:38:39 AM epoch: 284   train loss (per batch): 0.0005   test loss (per batch): 0.0103
+07/18/2022 08:39:37 AM epoch: 285   train loss (per batch): 0.0005   test loss (per batch): 0.0112
+07/18/2022 08:40:37 AM epoch: 286   train loss (per batch): 0.0005   test loss (per batch): 0.0119
+07/18/2022 08:41:36 AM epoch: 287   train loss (per batch): 0.0007   test loss (per batch): 0.0114
+07/18/2022 08:42:37 AM epoch: 288   train loss (per batch): 0.0005   test loss (per batch): 0.0117
+07/18/2022 08:43:36 AM epoch: 289   train loss (per batch): 0.0005   test loss (per batch): 0.0117
+07/18/2022 08:44:36 AM epoch: 290   train loss (per batch): 0.0005   test loss (per batch): 0.0113
+07/18/2022 08:44:36 AM checkpoint saved at epoch 290
+07/18/2022 08:45:35 AM epoch: 291   train loss (per batch): 0.0006   test loss (per batch): 0.0113
+07/18/2022 08:46:36 AM epoch: 292   train loss (per batch): 0.0006   test loss (per batch): 0.0113
+07/18/2022 08:47:34 AM epoch: 293   train loss (per batch): 0.0006   test loss (per batch): 0.0103
+07/18/2022 08:48:34 AM epoch: 294   train loss (per batch): 0.0005   test loss (per batch): 0.0107
+07/18/2022 08:49:32 AM epoch: 295   train loss (per batch): 0.0005   test loss (per batch): 0.0112
+07/18/2022 08:50:32 AM epoch: 296   train loss (per batch): 0.0006   test loss (per batch): 0.0110
+07/18/2022 08:51:31 AM epoch: 297   train loss (per batch): 0.0005   test loss (per batch): 0.0111
+07/18/2022 08:52:32 AM epoch: 298   train loss (per batch): 0.0006   test loss (per batch): 0.0106
+07/18/2022 08:53:33 AM epoch: 299   train loss (per batch): 0.0005   test loss (per batch): 0.0113
+07/18/2022 08:54:35 AM epoch: 300   train loss (per batch): 0.0006   test loss (per batch): 0.0110
+07/18/2022 08:54:35 AM checkpoint saved at epoch 300
+07/18/2022 08:55:35 AM epoch: 301   train loss (per batch): 0.0005   test loss (per batch): 0.0114
+07/18/2022 08:56:35 AM epoch: 302   train loss (per batch): 0.0004   test loss (per batch): 0.0111
+07/18/2022 08:57:35 AM epoch: 303   train loss (per batch): 0.0006   test loss (per batch): 0.0119
+07/18/2022 08:58:36 AM epoch: 304   train loss (per batch): 0.0006   test loss (per batch): 0.0114
+07/18/2022 08:59:37 AM epoch: 305   train loss (per batch): 0.0005   test loss (per batch): 0.0110
+07/18/2022 09:00:38 AM epoch: 306   train loss (per batch): 0.0005   test loss (per batch): 0.0108
+07/18/2022 09:01:39 AM epoch: 307   train loss (per batch): 0.0004   test loss (per batch): 0.0112
+07/18/2022 09:02:41 AM epoch: 308   train loss (per batch): 0.0004   test loss (per batch): 0.0113
+07/18/2022 09:03:41 AM epoch: 309   train loss (per batch): 0.0007   test loss (per batch): 0.0115
+07/18/2022 09:04:41 AM epoch: 310   train loss (per batch): 0.0005   test loss (per batch): 0.0118
+07/18/2022 09:04:41 AM checkpoint saved at epoch 310
+07/18/2022 09:05:42 AM epoch: 311   train loss (per batch): 0.0006   test loss (per batch): 0.0114
+07/18/2022 09:06:45 AM epoch: 312   train loss (per batch): 0.0006   test loss (per batch): 0.0118
+07/18/2022 09:07:45 AM epoch: 313   train loss (per batch): 0.0005   test loss (per batch): 0.0122
+07/18/2022 09:08:46 AM epoch: 314   train loss (per batch): 0.0005   test loss (per batch): 0.0110
+07/18/2022 09:09:45 AM epoch: 315   train loss (per batch): 0.0004   test loss (per batch): 0.0118
+07/18/2022 09:10:31 AM epoch: 316   train loss (per batch): 0.0006   test loss (per batch): 0.0115
+07/18/2022 09:11:16 AM epoch: 317   train loss (per batch): 0.0005   test loss (per batch): 0.0121
+07/18/2022 09:12:01 AM epoch: 318   train loss (per batch): 0.0005   test loss (per batch): 0.0128
+07/18/2022 09:12:47 AM epoch: 319   train loss (per batch): 0.0005   test loss (per batch): 0.0118
+07/18/2022 09:13:33 AM epoch: 320   train loss (per batch): 0.0005   test loss (per batch): 0.0115
+07/18/2022 09:13:33 AM checkpoint saved at epoch 320
+07/18/2022 09:14:18 AM epoch: 321   train loss (per batch): 0.0005   test loss (per batch): 0.0116
+07/18/2022 09:15:03 AM epoch: 322   train loss (per batch): 0.0005   test loss (per batch): 0.0117
+07/18/2022 09:15:48 AM epoch: 323   train loss (per batch): 0.0005   test loss (per batch): 0.0117
+07/18/2022 09:16:34 AM epoch: 324   train loss (per batch): 0.0004   test loss (per batch): 0.0113
+07/18/2022 09:17:18 AM epoch: 325   train loss (per batch): 0.0006   test loss (per batch): 0.0116
+07/18/2022 09:18:03 AM epoch: 326   train loss (per batch): 0.0005   test loss (per batch): 0.0111
+07/18/2022 09:18:48 AM epoch: 327   train loss (per batch): 0.0005   test loss (per batch): 0.0117
+07/18/2022 09:19:34 AM epoch: 328   train loss (per batch): 0.0005   test loss (per batch): 0.0116
+07/18/2022 09:20:19 AM epoch: 329   train loss (per batch): 0.0005   test loss (per batch): 0.0120
+07/18/2022 09:21:04 AM epoch: 330   train loss (per batch): 0.0005   test loss (per batch): 0.0121
+07/18/2022 09:21:04 AM checkpoint saved at epoch 330
+07/18/2022 09:21:49 AM epoch: 331   train loss (per batch): 0.0006   test loss (per batch): 0.0117
+07/18/2022 09:22:36 AM epoch: 332   train loss (per batch): 0.0005   test loss (per batch): 0.0122
+07/18/2022 09:23:21 AM epoch: 333   train loss (per batch): 0.0005   test loss (per batch): 0.0123
+07/18/2022 09:24:07 AM epoch: 334   train loss (per batch): 0.0005   test loss (per batch): 0.0120
+07/18/2022 09:24:52 AM epoch: 335   train loss (per batch): 0.0004   test loss (per batch): 0.0116
+07/18/2022 09:25:38 AM epoch: 336   train loss (per batch): 0.0004   test loss (per batch): 0.0122
+07/18/2022 09:26:22 AM epoch: 337   train loss (per batch): 0.0006   test loss (per batch): 0.0112
+07/18/2022 09:27:07 AM epoch: 338   train loss (per batch): 0.0004   test loss (per batch): 0.0121
+07/18/2022 09:27:51 AM epoch: 339   train loss (per batch): 0.0005   test loss (per batch): 0.0120
+07/18/2022 09:28:36 AM epoch: 340   train loss (per batch): 0.0005   test loss (per batch): 0.0117
+07/18/2022 09:28:36 AM checkpoint saved at epoch 340
+07/18/2022 09:29:20 AM epoch: 341   train loss (per batch): 0.0005   test loss (per batch): 0.0116
+07/18/2022 09:30:05 AM epoch: 342   train loss (per batch): 0.0005   test loss (per batch): 0.0121
+07/18/2022 09:30:50 AM epoch: 343   train loss (per batch): 0.0006   test loss (per batch): 0.0118
+07/18/2022 09:31:35 AM epoch: 344   train loss (per batch): 0.0005   test loss (per batch): 0.0115
+07/18/2022 09:32:20 AM epoch: 345   train loss (per batch): 0.0004   test loss (per batch): 0.0123
+07/18/2022 09:33:04 AM epoch: 346   train loss (per batch): 0.0004   test loss (per batch): 0.0120
+07/18/2022 09:33:49 AM epoch: 347   train loss (per batch): 0.0005   test loss (per batch): 0.0112
+07/18/2022 09:34:34 AM epoch: 348   train loss (per batch): 0.0006   test loss (per batch): 0.0123
+07/18/2022 09:35:18 AM epoch: 349   train loss (per batch): 0.0006   test loss (per batch): 0.0121
+07/18/2022 09:36:03 AM epoch: 350   train loss (per batch): 0.0004   test loss (per batch): 0.0113
+07/18/2022 09:36:03 AM checkpoint saved at epoch 350
+07/18/2022 09:36:47 AM epoch: 351   train loss (per batch): 0.0005   test loss (per batch): 0.0122
+07/18/2022 09:37:34 AM epoch: 352   train loss (per batch): 0.0006   test loss (per batch): 0.0118
+07/18/2022 09:38:19 AM epoch: 353   train loss (per batch): 0.0005   test loss (per batch): 0.0118
+07/18/2022 09:39:05 AM epoch: 354   train loss (per batch): 0.0005   test loss (per batch): 0.0117
+07/18/2022 09:39:50 AM epoch: 355   train loss (per batch): 0.0004   test loss (per batch): 0.0122
+07/18/2022 09:40:34 AM epoch: 356   train loss (per batch): 0.0005   test loss (per batch): 0.0122
+07/18/2022 09:41:19 AM epoch: 357   train loss (per batch): 0.0007   test loss (per batch): 0.0119
+07/18/2022 09:42:03 AM epoch: 358   train loss (per batch): 0.0004   test loss (per batch): 0.0112
+07/18/2022 09:42:47 AM epoch: 359   train loss (per batch): 0.0004   test loss (per batch): 0.0121
+07/18/2022 09:43:31 AM epoch: 360   train loss (per batch): 0.0005   test loss (per batch): 0.0115
+07/18/2022 09:43:31 AM checkpoint saved at epoch 360
+07/18/2022 09:44:15 AM epoch: 361   train loss (per batch): 0.0004   test loss (per batch): 0.0120
+07/18/2022 09:44:59 AM epoch: 362   train loss (per batch): 0.0005   test loss (per batch): 0.0117
+07/18/2022 09:45:43 AM epoch: 363   train loss (per batch): 0.0006   test loss (per batch): 0.0129
+07/18/2022 09:46:27 AM epoch: 364   train loss (per batch): 0.0005   test loss (per batch): 0.0122
+07/18/2022 09:47:11 AM epoch: 365   train loss (per batch): 0.0004   test loss (per batch): 0.0118
+07/18/2022 09:47:55 AM epoch: 366   train loss (per batch): 0.0004   test loss (per batch): 0.0118
+07/18/2022 09:48:39 AM epoch: 367   train loss (per batch): 0.0005   test loss (per batch): 0.0120
+07/18/2022 09:49:22 AM epoch: 368   train loss (per batch): 0.0005   test loss (per batch): 0.0119
+07/18/2022 09:50:06 AM epoch: 369   train loss (per batch): 0.0005   test loss (per batch): 0.0126
+07/18/2022 09:50:49 AM epoch: 370   train loss (per batch): 0.0005   test loss (per batch): 0.0123
+07/18/2022 09:50:49 AM checkpoint saved at epoch 370
+07/18/2022 09:51:34 AM epoch: 371   train loss (per batch): 0.0004   test loss (per batch): 0.0119
+07/18/2022 09:52:17 AM epoch: 372   train loss (per batch): 0.0005   test loss (per batch): 0.0121
+07/18/2022 09:53:02 AM epoch: 373   train loss (per batch): 0.0006   test loss (per batch): 0.0121
+07/18/2022 09:53:45 AM epoch: 374   train loss (per batch): 0.0005   test loss (per batch): 0.0126
+07/18/2022 09:54:29 AM epoch: 375   train loss (per batch): 0.0004   test loss (per batch): 0.0119
+07/18/2022 09:55:12 AM epoch: 376   train loss (per batch): 0.0004   test loss (per batch): 0.0118
+07/18/2022 09:55:56 AM epoch: 377   train loss (per batch): 0.0004   test loss (per batch): 0.0121
+07/18/2022 09:56:39 AM epoch: 378   train loss (per batch): 0.0005   test loss (per batch): 0.0122
+07/18/2022 09:57:23 AM epoch: 379   train loss (per batch): 0.0005   test loss (per batch): 0.0118
+07/18/2022 09:58:05 AM epoch: 380   train loss (per batch): 0.0004   test loss (per batch): 0.0123
+07/18/2022 09:58:05 AM checkpoint saved at epoch 380
+07/18/2022 09:58:50 AM epoch: 381   train loss (per batch): 0.0005   test loss (per batch): 0.0125
+07/18/2022 09:59:33 AM epoch: 382   train loss (per batch): 0.0006   test loss (per batch): 0.0119
+07/18/2022 10:00:18 AM epoch: 383   train loss (per batch): 0.0005   test loss (per batch): 0.0126
+07/18/2022 10:01:02 AM epoch: 384   train loss (per batch): 0.0004   test loss (per batch): 0.0113
+07/18/2022 10:01:47 AM epoch: 385   train loss (per batch): 0.0004   test loss (per batch): 0.0119
+07/18/2022 10:02:29 AM epoch: 386   train loss (per batch): 0.0005   test loss (per batch): 0.0119
+07/18/2022 10:03:13 AM epoch: 387   train loss (per batch): 0.0007   test loss (per batch): 0.0126
+07/18/2022 10:03:56 AM epoch: 388   train loss (per batch): 0.0004   test loss (per batch): 0.0121
+07/18/2022 10:04:41 AM epoch: 389   train loss (per batch): 0.0004   test loss (per batch): 0.0128
+07/18/2022 10:05:23 AM epoch: 390   train loss (per batch): 0.0005   test loss (per batch): 0.0119
+07/18/2022 10:05:23 AM checkpoint saved at epoch 390
+07/18/2022 10:06:07 AM epoch: 391   train loss (per batch): 0.0006   test loss (per batch): 0.0142
+07/18/2022 10:06:50 AM epoch: 392   train loss (per batch): 0.0006   test loss (per batch): 0.0109
+07/18/2022 10:07:34 AM epoch: 393   train loss (per batch): 0.0003   test loss (per batch): 0.0113
+07/18/2022 10:08:17 AM epoch: 394   train loss (per batch): 0.0004   test loss (per batch): 0.0122
+07/18/2022 10:09:02 AM epoch: 395   train loss (per batch): 0.0005   test loss (per batch): 0.0119
+07/18/2022 10:09:44 AM epoch: 396   train loss (per batch): 0.0004   test loss (per batch): 0.0131
+07/18/2022 10:10:29 AM epoch: 397   train loss (per batch): 0.0005   test loss (per batch): 0.0130
+07/18/2022 10:11:15 AM epoch: 398   train loss (per batch): 0.0006   test loss (per batch): 0.0114
+07/18/2022 10:12:00 AM epoch: 399   train loss (per batch): 0.0004   test loss (per batch): 0.0121
+07/18/2022 10:12:43 AM epoch: 400   train loss (per batch): 0.0004   test loss (per batch): 0.0124
+07/18/2022 10:12:43 AM checkpoint saved at epoch 400
+07/18/2022 10:12:43 AM === Training Completes (401 epochs trained, best epoch at 45 with test loss per batch = 0.0058) ====

@@ -1,0 +1,25 @@
+07/18/2022 05:21:42 PM ******************************************* COMMAND LINE *******************************************
+07/18/2022 05:21:42 PM train.py --lr 0.0005
+
+07/18/2022 05:21:42 PM ************************************** EXPERIMENT INFORMATION **************************************
+07/18/2022 05:21:42 PM Task: None
+07/18/2022 05:21:42 PM Experiment Name: exp_F_F_F_7_6_5
+07/18/2022 05:21:42 PM Number of Epochs: 401, Learning Rate: 0.0005, Batch Size: 32 
+
+07/18/2022 05:21:42 PM ***************************************** DATA INFORMATION *****************************************
+07/18/2022 05:21:42 PM Use Density: False; Use Truck Speed: False; Use Personal Vehicle Speed: False
+07/18/2022 05:21:42 PM Input Sequence Length: 7; Output Sequence Lenth: 6; Output Frequency: 5 
+
+07/18/2022 05:21:42 PM ***************************************** LOADING PROGRESS *****************************************
+07/18/2022 05:21:42 PM successfully loaded data 
+
+07/18/2022 05:21:42 PM ========================================= Training Starts ==========================================
+07/18/2022 05:21:42 PM please check tensorboard for plots of experiment ./logs/None/exp_F_F_F_7_6_5
+07/18/2022 05:21:42 PM please check logging messages at ./logs/None/exp_F_F_F_7_6_5/training.log
+07/18/2022 05:22:30 PM epoch: 0   train loss (per batch): 113.0346   test loss (per batch): 48.0618
+07/18/2022 05:22:30 PM checkpoint saved at epoch 0
+07/18/2022 05:22:30 PM best model saved at epoch 0
+07/18/2022 05:23:20 PM epoch: 1   train loss (per batch): 44.7193   test loss (per batch): 36.9961
+07/18/2022 05:23:20 PM best model saved at epoch 1
+07/18/2022 05:24:15 PM epoch: 2   train loss (per batch): 35.5819   test loss (per batch): 34.2077
+07/18/2022 05:24:15 PM best model saved at epoch 2
