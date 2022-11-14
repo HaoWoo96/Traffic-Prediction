@@ -84,7 +84,7 @@ class EncoderTrans(nn.Module):
         self.args = args
 
         self.pos_encoder = PosEmbed(args)
-        self.trans_encoder_layers = TransformerEncoderLayer(d_model=args.in_dim, nhead=args.num_head, dropout=args.dropout, batch_first=True)
+        self.trans_encoder_layers = TransformerEncoderLayer(d_model=args.in_dim, nhead=args.num_head, dropout=args.dropout, batch_first=True, norm_first=True)  # layer normalization should be first, otherwise the training will be very difficult
         self.trans_encoder = TransformerEncoder(encoder_layers=self.trans_encoder_layers, nlayers=args.num_trans_layers)
 
         # Generates an upper-triangular matrix of -inf, with zeros on diag.
