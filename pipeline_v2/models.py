@@ -6,282 +6,8 @@ import torch.nn.functional as F
 
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
+from modules import EncoderRNN, EncoderTrans, PosEmbed, DecoderRNN, DecoderMLP, AttnDecoderRNN, STBlock
 
-#############################
-#       BUILDING BLOCKS     #
-#############################
-class EncoderRNN(nn.Module):
-    def __init__(self, args):
-        super(EncoderRNN, self).__init__()
-        self.args = args
-
-        # self.incident_start, self.incident_end = args.incident_indices  # starting and ending indices of categorical features (incident)
-        # self.incident_embedding = nn.Embedding(num_embeddings=args.incident_range, embedding_dim=args.incident_embed_dim)
-        self.input_processing = nn.Sequential(
-                nn.Dropout(args.dropout_prob),
-                nn.Linear(args.in_dim, 2*args.hidden_dim)
-                )
-        # self.gru = nn.GRU(input_size=2*args.hidden_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
-        self.gru = nn.GRU(input_size=args.in_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
-
-    def forward(self, x, hidden):
-        '''
-        INPUTs
-            x: input, (batch_size, in_seq_len, in_dim)
-            hidden: (num_layer, batch_size, hidden_dim)
-        OUTPUTs
-            output: (batch_size, in_seq_len, hidden_dim)
-            hidden: (num_layer, batch_size, hidden_dim)
-        '''
-        # embedded_incident_feat = self.incident_embedding(input[:, :, self.incident_start:self.incident_end])  # (batch_size, in_seq_len, incident_feat_dim, incident_embed_dim)
-        # embedded_incident_feat = torch.flatten(embedded_incident_feat, start_dim=-2)  # (batch_size, in_seq_len, incident_feat_dim * incident_embed_dim)
-        # embedded_input = torch.cat((input[:self.incident_start], embedded_incident_feat, input[self.incident_end:]), dim=-1)  # (batch_size, in_seq_len, in_feat_dim)
-        # output, hidden = self.gru(embedded_input, hidden)
-
-        # processed_input = self.input_processing(x)
-        # output, hidden = self.gru(processed_input, hidden)
-        output, hidden = self.gru(x, hidden)
-
-        return output, hidden
-
-    def initHidden(self, batch_size):
-        # here we supply an argument batch_size instead of using self.args.batch_size
-        # because the last batch may not have full batch_size
-        return torch.zeros(self.args.num_layer, batch_size, self.args.hidden_dim, device=self.args.device)
-
-
-# Positional Embedding Encoder for Transformer Encoder
-class PosEmbed(nn.Module):
-    def __init__(self, args):
-        super(PosEmbed, self).__init__()
-        self.dropout = nn.Dropout(p=args.dropout)
-        
-        position = torch.arange(args.in_seq_len).unsqueeze(0)
-        div_term = torch.exp(torch.arange(0, args.in_dim, 2)*(-math.log(10000.0) / args.in_dim))
-        self.pe = torch.zeros(1, args.in_seq_len, args.in_dim)
-        self.pe[0, :, 0::2] = torch.sin(position * div_term)
-        self.pe[0, :, 1::2] = torch.cos(position * div_term)
-
-        self.register_buffer('pe', self.pe)
-        self.args = args
-
-
-    def forward(self, x):
-        '''
-        INPUTs
-            x: input, (batch_size, in_seq_len, in_dim)
-        OUTPUTs
-            output: (batch_size, in_seq_len, in_dim)
-        '''
-        x = x + self.pe
-        return self.dropout(x)
-
-
-# Transformer Encoder
-class EncoderTrans(nn.Module):
-    def __init__(self, args):
-        super(EncoderTrans, self).__init__()
-        self.args = args
-
-        self.pos_encoder = PosEmbed(args)
-        self.trans_encoder_layers = TransformerEncoderLayer(d_model=args.in_dim, nhead=args.num_head, dropout=args.dropout, batch_first=True, norm_first=True)  # layer normalization should be first, otherwise the training will be very difficult
-        self.trans_encoder = TransformerEncoder(encoder_layers=self.trans_encoder_layers, nlayers=args.num_trans_layers)
-
-        # Generates an upper-triangular matrix of -inf, with zeros on diag.
-        self.mask = torch.triu(torch.ones(args.in_seq_len, args.in_seq_len) * float('-inf'), diagonal=1)  # size (in_seq_len, in_seq_len)
-
-    def forward(self, x):
-        '''
-        INPUTs
-            x: input, (batch_size, in_seq_len, in_dim)
-        OUTPUTs
-            output: (batch_size, in_seq_len, in_dim)
-        '''
-        new_x = x * math.sqrt(self.args.in_dim)
-        new_x = self.pos_encoder(new_x)
-        output = self.transformer_encoder(new_x, self.mask)
-        return output
-        
-
-# RNN Decoder without Attention
-class DecoderRNN(nn.Module):
-    def __init__(self, args, dec_type):
-        '''
-        INPUTs
-            args: arguments
-            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "R": for speed prediction)
-        '''
-        super(DecoderRNN, self).__init__()
-        self.args = args
-        self.dec_type = dec_type
-
-        self.gru = nn.GRU(input_size=args.out_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
-        
-        self.out = nn.Sequential(
-                nn.Linear(args.hidden_dim, args.out_dim),
-                nn.Linear(args.out_dim, args.out_dim)
-                )
-
-    def forward(self, target, hidden):
-        '''
-        INPUTs
-            target: (batch_size, out_seq_len, out_dim), the entries in the last dimension is either speed data or incident status
-            hidden: the hidden tensor computed from encoder, (num_layer, batch_size, hidden_dim) 
-
-        OUTPUTs
-            output: (batch_size, out_seq_len, out_dim) 
-            hidden: (num_layer, batch_size, hidden_dim)
-        '''
-        use_teacher_forcing = True if random.random() < self.args.teacher_forcing_ratio else False
-
-        output = []
-        if use_teacher_forcing:
-            # Teacher forcing: Feed the target as the next input
-            for i in range(self.args.out_seq_len-1):
-                x = target[:, i, :].unsqueeze(1)  # Teacher forcing, (batch_size, 1, out_dim)
-                temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
-                output.append(self.out(temp_out))
-        else:
-            # Without teacher forcing: use its own predictions as the next input
-            x = target[:, 0, :].unsqueeze(1)
-            for i in range(self.args.out_seq_len-1):
-                temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
-                temp_out = self.out(temp_out) 
-                output.append(temp_out)
-
-                x = temp_out.detach()  # use prediction as next input, detach from history
-        
-        return torch.cat(tensors=output, dim=1), hidden
-
-# RNN Decoder with Attention
-class AttnDecoderRNN(nn.Module):
-    def __init__(self, args, dec_type):
-        '''
-        INPUTs
-            args: arguments
-            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "Non_LR": for speed prediction)
-        '''
-        super(AttnDecoderRNN, self).__init__()
-        self.args = args
-
-        # self.dropout = nn.Dropout(self.dropout_p)
-        out_dim = args.out_dim
-
-        # for TMC speed prediction, model should output 3*out_dim results (all/truck/personal vehicle)
-        if args.gt_type == "tmc" and dec_type != "LR":
-            out_dim = 3*args.out_dim
-
-        self.attn_weight = nn.Linear(out_dim + args.hidden_dim, args.in_seq_len)
-        self.attn_combine = nn.Linear(out_dim + args.hidden_dim, out_dim)
-
-        self.gru = nn.GRU(input_size=out_dim, hidden_size=args.hidden_dim, num_layers=args.num_layer, batch_first=True)
-        
-        self.out = nn.Sequential(
-                nn.Linear(args.hidden_dim, out_dim),
-                nn.Linear(out_dim, out_dim)
-                )
-    
-
-    def forward(self, target, hidden, enc_output):
-        '''
-        INPUTs
-            target: (batch_size, out_seq_len, out_dim), the entries in the last dimension is either speed data or incident status
-            hidden: the hidden tensor computed from encoder, (dec_num_layer, batch_size, hidden_dim) 
-            enc_output: (batch_size, in_seq_len, hidden_dim)
-
-        OUTPUTs
-            output: (batch_size, out_seq_len, out_dim) 
-            hidden: (num_layer, batch_size, hidden_dim)
-            attn_weights: (batch_size, out_seq_len, in_seq_len)
-        '''
-        use_teacher_forcing = True if random.random() < self.args.teacher_forcing_ratio else False
-
-        output = []
-        attn_weights = []
-
-        if use_teacher_forcing:
-            # Teacher forcing: Feed the target as the next input
-            for i in range(self.args.out_seq_len):
-                x = target[:, i, :].unsqueeze(1)  # Teacher forcing, (batch_size, 1, out_dim)
-
-                # extract the top most hidden tensor, concat it with target input, and compute attention weights
-                attn_weight = F.softmax(self.attn_weight(torch.cat(tensors=(x, hidden[-1, :, :].unsqueeze(1)), dim=2)), dim=2)  # (batch_size, 1, in_seq_len)
-                attn_weights.append(attn_weight)
-                
-                # apply attention weights to encoder output
-                weighted_enc_output = torch.bmm(attn_weight, enc_output)  # (batch_size, 1, hidden_dim)
-                
-                # concat weighted encoder output with target input 
-                x = self.attn_combine(torch.cat(tensors=(x, weighted_enc_output), dim=2))  # (batch_size, 1, out_dim)
-                x = F.relu(x)
-
-                temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
-                output.append(self.out(temp_out))
-        else:
-            # Without teacher forcing: use its own predictions as the next input
-            x = target[:, 0, :].unsqueeze(1)  # (batch_size, 1, out_dim)
-            for i in range(self.args.out_seq_len):
-
-                # extract the top most hidden tensor, concat it with target input, and compute attention weights
-                attn_weight = F.softmax(self.attn_weight(torch.cat(tensors=(x, hidden[-1, :, :].unsqueeze(1)), dim=2)), dim=2)  # (batch_size, 1, in_seq_len)
-                attn_weights.append(attn_weight)
-                
-                # apply attention weights to encoder output
-                weighted_enc_output = torch.bmm(attn_weight, enc_output)  # (batch_size, 1, hidden_dim)
-                
-                # concat weighted encoder output with target input 
-                x = self.attn_combine(torch.cat(tensors=(x, weighted_enc_output), dim=2))  # (batch_size, 1, out_dim)
-                x = F.relu(x)
-
-                temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
-
-                temp_out = self.out(temp_out) 
-                output.append(temp_out)
-
-                x = temp_out.detach()  # use prediction as next input, detach from history
-
-        return torch.cat(tensors=output, dim=1), hidden, torch.cat(tensors=attn_weights, dim=1)
-
-# MLP Decoder (used for Transformer Model)
-class DecoderMLP(nn.Module):
-    def __init__(self, args, dec_type):
-        '''
-        INPUTs
-            args: arguments
-            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "Non_LR": for speed prediction)
-        '''
-        super(DecoderMLP, self).__init__()
-        self.args = args
-
-        final_dim = args.out_dim * args.out_seq_len
-
-        # for TMC speed prediction, model should output 3*out_dim results (all/truck/personal vehicle)
-        if args.gt_type == "tmc" and dec_type != "LR":
-            final_dim = 3*final_dim
-
-        self.decoder = nn.Sequential(
-            nn.Linear(args.in_dim*args.in_seq_len, 2048),
-            nn.Linear(2048, 1024),
-            nn.Linear(1024, final_dim)
-        )
-
-    def forward(self, x):
-        '''
-        INPUTs
-            x: input, (batch_size, in_seq_len, in_dim)
-
-        OUTPUTs
-            result: speed prediction or incident status prediction, (batch_size, out_seq_len, out_dim)
-        '''
-        batch_size = x.size(0)
-        result = self.decoder(x.view(batch_size, -1))  # (batch_size, out_seq_len * out_dim)
-
-        return result.view(batch_size, self.args.out_seq_len, self.args.out_dim)
-
-
-#############################
-#           MODELS          #
-#############################
 # 1. Sequence-to-sequence Model without Factorization
 class Seq2SeqNoFact(nn.Module):
     '''
@@ -483,5 +209,48 @@ class TransFact(nn.Module):
         else:
             return speed_pred, LR_out
 
+
+
+# 5. Spatial-temporal Model with GCN+Transformer Encoder
+class Model(nn.Module):
+    def __init__(self, args):
+        super(Model, self).__init__()
+        self.learnable_embed = nn.init.normal_(torch.empty((args.in_dim - args.in_fixed_dim, ), requires_grad=True, device=args.device))
+        self.in_linear = nn.Linear(args.in_dim, args.hidden_dim)
+        self.spatial_temporal_blocks = nn.Sequential(
+            *[STBlock(args) for _ in range(args.num_block)]
+        )
+        self.conv = nn.Conv2d(in_channels=args.in_seq_len, out_channels=args.out_seq_len, kernel_size=1, stride=1, padding=0)
+        self.relu = nn.ReLU()
+        self.out_linear = nn.Linear(args.hidden_dim+6, args.out_dim)
+
+    def forward(self, x):
+        '''
+        INPUT
+            x: tuple of (weekly_avg_node_embedding, daily_avg_node_embedding, current_node_embedding)
+                weekly_avg_node_embedding: node embedding of, size (batch_size, out_seq_len, num_node, 3) 
+                daily_avg_node_embedding: node embedding of, size (batch_size, out_seq_len, num_node, 3)
+                current_node_embedding: initial node embedding of current tracking period, size (batch_size, in_seq_len, num_node, in_fixed_dim)
+        
+        OUTPUT
+            result: size (batch_size, out_seq_len, num_node, out_dim)
+        '''
+        weekly_avg_node_embedding, daily_avg_node_embedding, current_node_embedding = x
+        batch_size, in_seq_len, num_node, _ = current_node_embedding.shape
+
+        # 1. Concat Learnable Embedding
+        learnable_embed = self.learnable_embed.repeat((batch_size, in_seq_len, num_node, 1))  # (batch_size, in_seq_len, num_node, in_dim - in_fixed_dim)
+        new_current_node_embedding = torch.cat((current_node_embedding, learnable_embed), dim=3) # (batch_size, in_seq_len, num_node, in_dim)
+
+        # 2. Spatial-temporal Feature Extraction
+        result = self.in_linear(new_current_node_embedding) # (batch_size, in_seq_len, num_node, hidden_dim)
+        result = self.spatial_temporal_blocks(result) # (batch_size, in_seq_len, num_node, hidden_dim)
+
+        # 3. Convolution along the Axis of Time
+        result = self.relu(self.conv(result)) # (batch_size, out_seq_len, num_node, hidden_dim)
+        result = torch.cat((weekly_avg_node_embedding, daily_avg_node_embedding, result), dim=3)  # (batch_size, out_seq_len, num_node, hidden_dim+6)
+        result = self.out_linear(result) # (batch_size, out_seq_len, num_node, out_dim)
+        
+        return result
 
 
