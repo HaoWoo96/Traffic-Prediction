@@ -7,7 +7,7 @@ from torchmetrics.functional import precision_recall
 from tqdm import tqdm
 
 from models import TrafficSeq2Seq, TrafficModel
-from data_loader import get_inference_data_loader, get_sorted_inference_data_loader
+from pipeline_v2.data_loader import get_inference_data_loader, get_sorted_inference_data_loader
 from utils import create_dir, log_eval_meta, log_eval_spd_result_tmc, log_eval_spd_result_xd, visualize_attn_weight, log_eval_meta, log_lasso_result_tmc, log_lasso_result_xd
 from train import create_parser
 

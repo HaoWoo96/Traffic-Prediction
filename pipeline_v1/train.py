@@ -8,7 +8,7 @@ import sys
 from torch.utils.tensorboard import SummaryWriter
 
 from models import TrafficSeq2Seq, TrafficModel
-from data_loader import get_data_loader
+from pipeline_v2.data_loader import get_data_loader
 from utils import save_checkpoint, create_dir, log_train_meta
 
 ########################################
