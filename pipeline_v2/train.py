@@ -25,7 +25,6 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         x, target = batch
         x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2 or 4) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
-        batch_size = x.size(0)
 
         # Forward Pass
         # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
@@ -35,28 +34,16 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         # Compute Loss
         if args.task == "LR":
             criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
-            if args.gt_type == "tmc":
-                loss = criterion(pred, target[:, 1:, :, 3])
-            else:
-                loss = criterion(pred, target[:, 1:, :, 1])
+            loss = criterion(pred, target[:, 1:, :, 1])
         else: 
             criterion = torch.nn.MSELoss()
-            if args.gt_type == "tmc":
-                # register hook to only consider certain segments for the computation of loss
-                if args.task in {"rec", "nonrec"}:
-                    if args.task == "rec":
-                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) < 0.5).float())
-                    else:
-                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3].repeat(1,1,3) >= 0.5).float())
-                loss = criterion(pred, target[:, 1:, :, :3].reshape(batch_size, args.out_seq_len, 3*args.out_dim))
-            else:
-                # register hook to only consider certain segments for the computation of loss
-                if args.task in {"rec", "nonrec"}:
-                    if args.task == "rec":
-                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] < 1).float())
-                    else:
-                        h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] >= 1).float())
-                loss = criterion(pred, target[:, 1:, :, 0])
+            # register hook to only consider certain segments for the computation of loss
+            if args.task in {"rec", "nonrec"}:
+                if args.task == "rec":
+                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] < 1).float())
+                else:
+                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] >= 1).float())
+            loss = criterion(pred, target[:, 1:, :, 0])
 
         epoch_loss += loss
 
@@ -88,7 +75,6 @@ def test(test_dataloader, model, epoch, args, writer):
         x, target = batch
         x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
-        batch_size = x.size(0)
 
         with torch.no_grad():
             # Forward Pass
@@ -99,16 +85,10 @@ def test(test_dataloader, model, epoch, args, writer):
             # Compute Loss
             if args.task == "LR":
                 criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
-                if args.gt_type == "tmc":
-                    loss = criterion(pred, target[:, 1:, :, 3])
-                else:
-                    loss = criterion(pred, target[:, 1:, :, 1])
+                loss = criterion(pred, target[:, 1:, :, 1])
             else: 
                 criterion = torch.nn.MSELoss()
-                if args.gt_type == "tmc":
-                    loss = criterion(pred, target[:, 1:, :, :3].reshape(batch_size, args.out_seq_len, 3*args.out_dim))
-                else:
-                    loss = criterion(pred, target[:, 1:, :, 0])
+                loss = criterion(pred, target[:, 1:, :, 0])
 
             epoch_loss += loss
 
@@ -281,15 +261,15 @@ def create_parser():
     # 2. Data Hyper-parameters
     parser.add_argument('--train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
     parser.add_argument('--seed', type=int, default=42, help='Seed for random splitting')
-    parser.add_argument('--gt_type', type=str, default="tmc", help='ground truth speed type, "tmc" or "xd"')
+    # parser.add_argument('--gt_type', type=str, default="tmc", help='ground truth speed type, "tmc" or "xd"')
 
-    parser.add_argument('--in_dim', type=int, default = 1796, help='dimension of input')
+    parser.add_argument('--in_dim', type=int, default = 1571, help='dimension of input')
     parser.add_argument('--out_dim', type=int, default=70, help=' dimension of output i.e. number of segments (78 by default)')
 
-    parser.add_argument('--density_indices', type=list or tuple, default = [0, 313], help='[start_idx, end_idx], indices of density features')
-    parser.add_argument('--speed_indices', type=list or tuple, default = [313, 626], help='[start_idx, end_idx], indices of speed features')
-    parser.add_argument('--truck_spd_indices', type=list or tuple, default = [626, 859], help='[start_idx, end_idx], indices of truck speed features')
-    parser.add_argument('--pv_spd_indices', type=list or tuple, default = [859, 1092], help='[start_idx, end_idx], indices of personal vehicle speed features')
+    parser.add_argument('--density_indices', type=list or tuple, default = [0, 403], help='[start_idx, end_idx], indices of density features')
+    parser.add_argument('--speed_indices', type=list or tuple, default = [403, 806], help='[start_idx, end_idx], indices of speed features')
+    parser.add_argument('--truck_spd_indices', type=list or tuple, default = [806, 949], help='[start_idx, end_idx], indices of truck speed features')
+    parser.add_argument('--pv_spd_indices', type=list or tuple, default = [949, 1092], help='[start_idx, end_idx], indices of personal vehicle speed features')
     # parser.add_argument('--incident_indices', type=list or tuple, default = [1166, 1382], help='[start_idx, end_idx], indices of incident features')
     
     parser.add_argument('--use_density', action="store_true", help='use density features or not')
@@ -354,19 +334,19 @@ if __name__ == '__main__':
     # Task specific directories
     args.log_dir += f"/{args.task}"
     args.checkpoint_dir += f"/{args.task}" 
-    args.exp_name += f"_{args.gt_type}_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}_{str(args.use_expectation)[0]}" 
+    args.exp_name += f"_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}_{str(args.use_expectation)[0]}" 
     if args.load_checkpoint_epoch > 0:
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
 
     # Change input dimension based on task type and whether to use new features or not
     if not args.use_density:
-        args.in_dim -= 313 
+        args.in_dim -= 403 
     if not args.use_speed:
-        args.in_dim -= 313
+        args.in_dim -= 403
     if not args.use_truck_spd:
-        args.in_dim -= 233
+        args.in_dim -= 143
     if not args.use_pv_spd:
-        args.in_dim -= 233
+        args.in_dim -= 143
 
     # 2. Execute Training Pipeline
     main(args)

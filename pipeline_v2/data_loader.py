@@ -12,13 +12,11 @@ class TrafficData(Dataset):
         self.args = args  
         
         X_path = f"{self.args.data_dir}/new_X_v2.npy"  # store sequence features frequency of 5 min
-        Y_path = f"{self.args.data_dir}/new_Y_v2.npy"  # store true speed & incident data in frequency of 1 min (XD) or 5 min (TMC)
+        Y_path = f"{self.args.data_dir}/new_Y_v2.npy"  # store true speed & incident data in frequency of 5 min (TMC & XD)
 
         self.all_X = torch.from_numpy(np.load(X_path)).float()  # (21060, feat_dim)
 
-        # For new_Y_xd: (5*29520, num_seg, 2) the last dimension refers to 1. speed and 2. incident status
-        # For new_Y_tmc: (29520, num_seg, 4), the last dimension refers to 1. all speed, 2. truck speed, 3. personal vehicle speed, and 4. incident status
-        self.Y = torch.from_numpy(np.load(Y_path)).float()   
+        self.Y = torch.from_numpy(np.load(Y_path)).float()  # (5*21060, num_seg, 2) the last dimension refers to 1. speed and 2. incident status
 
         # change input based on whether to use new features or not
         new_feat_indices = []
@@ -31,7 +29,7 @@ class TrafficData(Dataset):
         if args.use_pv_spd:
             new_feat_indices.append(args.pv_spd_indices)
         
-        self.X = self.all_X[:, args.pv_spd_indices[1]:]  # 29520, 704
+        self.X = self.all_X[:, args.pv_spd_indices[1]:]  # 21060, 479
         for i, j in new_feat_indices:
             self.X = torch.cat([self.all_X[:, i:j], self.X], axis=1)
         
@@ -40,16 +38,10 @@ class TrafficData(Dataset):
 
     def __getitem__(self, idx):
         x_idx_base = idx // 180
-        if self.args.gt_type == "tmc":
-            x_idx_remain = min(max(idx % 180, 6, self.args.in_seq_len-1), np.floor(186 - self.args.out_seq_len)) # ensure we have valid idx based on input and output sequence length
-            idx = int(x_idx_remain + x_idx_base * 180)
-            Y_idx = [idx-6 + i for i in range(self.args.out_seq_len+1)]  # be careful, the starting point (first idx) of Y is the same as the last idx of X, and won't count into output sequence length
-        else:
-            x_idx_remain = min(max(idx % 180, 6, self.args.in_seq_len-1), np.floor((186*5 - self.args.out_seq_len*self.args.out_freq)/5)) # ensure we have valid idx based on input and output sequence length
-            idx = int(x_idx_remain + x_idx_base * 180)
-            Y_idx = [(idx-6)*5 + i*self.args.out_freq for i in range(self.args.out_seq_len+1)]  # be careful, the starting point (first idx) of Y is the same as the last idx of X, and won't count into output sequence length
- 
-
+        x_idx_remain = min(max(idx % 180, 6, self.args.in_seq_len-1), np.floor(186 - self.args.out_seq_len)) # ensure we have valid idx based on input and output sequence length
+        idx = int(x_idx_remain + x_idx_base * 180)
+        Y_idx = [idx-6 + i for i in range(self.args.out_seq_len+1)]  # be careful, the starting point (first idx) of Y is the same as the last idx of X, and won't count into output sequence length
+        
         X = self.X[(idx-self.args.in_seq_len+1):idx+1, :]
         Y = self.Y[Y_idx, :, :]
 
