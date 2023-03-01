@@ -16,7 +16,7 @@ class TrafficData(Dataset):
 
         self.all_X = torch.from_numpy(np.load(X_path)).float()  # (21060, feat_dim)
 
-        self.Y = torch.from_numpy(np.load(Y_path)).float()  # (5*21060, num_seg, 2) the last dimension refers to 1. speed and 2. incident status
+        self.Y = torch.from_numpy(np.load(Y_path)).float()  # (21060, num_seg, 2) the last dimension refers to 1. speed and 2. incident status
 
         # change input based on whether to use new features or not
         new_feat_indices = []

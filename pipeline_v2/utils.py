@@ -86,7 +86,7 @@ def log_train_meta(args):
     logging.info(f"Teacher Forcing Ratio: {args.teacher_forcing_ratio} \n")
 
     logging.info('{:*^100}'.format(" DATA INFORMATION "))
-    logging.info(f"Ground Truth Speed Data Source: {args.gt_type}")
+    #logging.info(f"Ground Truth Speed Data Source: {args.gt_type}")
     logging.info(f"Use Density: {args.use_density}; Use Truck Speed: {args.use_truck_spd}; Use Personal Vehicle Speed: {args.use_pv_spd}; Use Raw Speed: {args.use_speed}")
     logging.info(f"Input Sequence Length: {args.in_seq_len}; Output Sequence Lenth: {args.out_seq_len}; Output Frequency: {args.out_freq} \n")
 
@@ -114,7 +114,6 @@ def log_eval_meta(args):
     logging.info(f"Teacher Forcing Ratio: {args.teacher_forcing_ratio} \n")
 
     logging.info('{:*^100}'.format(" DATA INFORMATION "))
-    logging.info(f"Ground Truth Speed Data Source: {args.gt_type}")
     logging.info(f"Use Density: {args.use_density}; Use Truck Speed: {args.use_truck_spd}; Use Personal Vehicle Speed: {args.use_pv_spd}; Use Raw Speed: {args.use_speed}")
     logging.info(f"Input Sequence Length: {args.in_seq_len}; Output Sequence Lenth: {args.out_seq_len}; Output Frequency: {args.out_freq} \n")
 

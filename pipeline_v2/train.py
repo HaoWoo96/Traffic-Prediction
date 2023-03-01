@@ -7,7 +7,7 @@ import sys
 
 from torch.utils.tensorboard import SummaryWriter
 
-from models import TrafficSeq2Seq, TrafficModel
+from models import Seq2SeqNoFact, Seq2SeqFact
 from data_loader import get_data_loader
 from utils import save_checkpoint, create_dir, log_train_meta
 
@@ -120,9 +120,9 @@ def main(args):
 
     # 3. Initialize Model
     if args.task != "base":
-        model = TrafficModel(args).to(args.device)
+        model = Seq2SeqFact(args).to(args.device)
     else:
-        model = TrafficSeq2Seq(args).to(args.device)
+        model = Seq2SeqNoFact(args).to(args.device)
 
     # 4. Load Checkpoint 
     if args.load_checkpoint:
@@ -264,7 +264,7 @@ def create_parser():
     # parser.add_argument('--gt_type', type=str, default="tmc", help='ground truth speed type, "tmc" or "xd"')
 
     parser.add_argument('--in_dim', type=int, default = 1571, help='dimension of input')
-    parser.add_argument('--out_dim', type=int, default=70, help=' dimension of output i.e. number of segments (78 by default)')
+    parser.add_argument('--out_dim', type=int, default=75, help=' dimension of output i.e. number of segments (78 by default)')
 
     parser.add_argument('--density_indices', type=list or tuple, default = [0, 403], help='[start_idx, end_idx], indices of density features')
     parser.add_argument('--speed_indices', type=list or tuple, default = [403, 806], help='[start_idx, end_idx], indices of speed features')
@@ -309,7 +309,7 @@ def create_parser():
     parser.add_argument('--exp_name', type=str, default="exp", help='Name of the experiment')
 
     # 4. Directories and Checkpoint/Sample Iterations
-    parser.add_argument('--data_dir', type=str, default='./data')
+    parser.add_argument('--data_dir', type=str, default='../data')
     parser.add_argument('--log_dir', type=str, default='./logs')
 
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')

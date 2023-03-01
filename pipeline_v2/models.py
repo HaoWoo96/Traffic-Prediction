@@ -76,6 +76,7 @@ class Seq2SeqFact(nn.Module):
         xxx_dec_hidden: (num_layer, batch_size, hidden_dim)
         xxx_attn_weights: (batch_size, out_seq_len, in_seq_len)
         '''
+        # print(target[..., 1].size(), enc_hidden.size(), enc_out.size())
         LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 1], enc_hidden, enc_out)
         rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], enc_hidden, enc_out)
         nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], enc_hidden, enc_out)

@@ -114,10 +114,6 @@ class AttnDecoderRNN(nn.Module):
         # self.dropout = nn.Dropout(self.dropout_p)
         out_dim = args.out_dim
 
-        # for TMC speed prediction, model should output 3*out_dim results (all/truck/personal vehicle)
-        if args.gt_type == "tmc" and dec_type != "LR":
-            out_dim = 3*args.out_dim
-
         self.attn_weight = nn.Linear(out_dim + args.hidden_dim, args.in_seq_len)
         self.attn_combine = nn.Linear(out_dim + args.hidden_dim, out_dim)
 
@@ -258,10 +254,6 @@ class DecoderMLP(nn.Module):
         self.args = args
 
         final_dim = args.out_dim * args.out_seq_len
-
-        # for TMC speed prediction, model should output 3*out_dim results (all/truck/personal vehicle)
-        if args.gt_type == "tmc" and dec_type != "LR":
-            final_dim = 3*final_dim
 
         self.decoder = nn.Sequential(
             nn.Linear(args.in_dim*args.in_seq_len, 2048),
