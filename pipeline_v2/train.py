@@ -34,15 +34,15 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         # Compute Loss
         if args.task == "LR":
             criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
-            loss = criterion(pred, target[:, 1:, :, 1])
+            loss = criterion(pred, target[:, 1:, :, 3])
         else: 
             criterion = torch.nn.MSELoss()
             # register hook to only consider certain segments for the computation of loss
             if args.task in {"rec", "nonrec"}:
                 if args.task == "rec":
-                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] < 1).float())
+                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] < 1.0).float())
                 else:
-                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 1] >= 1).float())
+                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] >= 1.0).float())
             loss = criterion(pred, target[:, 1:, :, 0])
 
         epoch_loss += loss
@@ -85,7 +85,7 @@ def test(test_dataloader, model, epoch, args, writer):
             # Compute Loss
             if args.task == "LR":
                 criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
-                loss = criterion(pred, target[:, 1:, :, 1])
+                loss = criterion(pred, target[:, 1:, :, 3])
             else: 
                 criterion = torch.nn.MSELoss()
                 loss = criterion(pred, target[:, 1:, :, 0])
@@ -244,13 +244,13 @@ def create_parser():
 
     # 1. Model hyper-parameters
     parser.add_argument('--num_layer', type=int, default=2, help='Number of stacked GRUs in encoder and decoder')
-    parser.add_argument('--hidden_dim', type=int, default=256, help='Hidden dimension in encoder and decoder')
+    parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension in encoder and decoder')
     parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='threshold of teacher forcing')
     parser.add_argument('--dropout_prob', type=float, default=0.1, help='threshold of teacher forcing')
 
-    parser.add_argument('--in_seq_len', type=int, default=7, help='sequence length of input')
-    parser.add_argument('--out_seq_len', type=int, default=6, help='sequence length of output')
-    parser.add_argument('--out_freq', type=int, default=5, help='frequency of output data')
+    parser.add_argument('--seq_len_in', type=int, default=7, help='sequence length of input')
+    parser.add_argument('--seq_len_out', type=int, default=6, help='sequence length of output')
+    parser.add_argument('--freq_out', type=int, default=5, help='frequency of output data')
 
     parser.add_argument('--inc_threshold', type=float, default=0.1, help='threshold of a prediction be considered as an incident')
     parser.add_argument('--use_expectation', action="store_true", help='use expectation of speed prediction as model output')
@@ -259,25 +259,25 @@ def create_parser():
     parser.add_argument('--use_gt_inc', type=int, default=0, help='use ground truth of indicent status as input to second stage')
 
     # 2. Data Hyper-parameters
-    parser.add_argument('--train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
+    parser.add_argument('--data_train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
     parser.add_argument('--seed', type=int, default=42, help='Seed for random splitting')
     # parser.add_argument('--gt_type', type=str, default="tmc", help='ground truth speed type, "tmc" or "xd"')
 
-    parser.add_argument('--in_dim', type=int, default = 1571, help='dimension of input')
-    parser.add_argument('--out_dim', type=int, default=75, help=' dimension of output i.e. number of segments (78 by default)')
+    parser.add_argument('--dim_in', type=int, default=1470, help='dimension of input')
+    parser.add_argument('--dim_out', type=int, default=207, help=' dimension of output i.e. number of segments (207 by default)')
 
-    parser.add_argument('--density_indices', type=list or tuple, default = [0, 403], help='[start_idx, end_idx], indices of density features')
-    parser.add_argument('--speed_indices', type=list or tuple, default = [403, 806], help='[start_idx, end_idx], indices of speed features')
-    parser.add_argument('--truck_spd_indices', type=list or tuple, default = [806, 949], help='[start_idx, end_idx], indices of truck speed features')
-    parser.add_argument('--pv_spd_indices', type=list or tuple, default = [949, 1092], help='[start_idx, end_idx], indices of personal vehicle speed features')
-    # parser.add_argument('--incident_indices', type=list or tuple, default = [1166, 1382], help='[start_idx, end_idx], indices of incident features')
+    parser.add_argument('--indices_dens', type=list or tuple, default = [0, 207], help='[start_idx, end_idx], indices of density features')
+    parser.add_argument('--indices_spd_all', type=list or tuple, default = [207, 414], help='[start_idx, end_idx], indices of speed features')
+    parser.add_argument('--indices_spd_truck', type=list or tuple, default = [414, 621], help='[start_idx, end_idx], indices of truck speed')
+    parser.add_argument('--indices_spd_pv', type=list or tuple, default = [621, 828], help='[start_idx, end_idx], indices of personal vehicle speed')
+    # parser.add_argument('--indices_inc', type=list or tuple, default = [1035, 1242], help='[start_idx, end_idx], indices of incident status features')
     
-    parser.add_argument('--use_density', action="store_true", help='use density features or not')
-    parser.add_argument('--use_speed', action="store_true", help='use raw speed features or not')
-    parser.add_argument('--use_truck_spd', action="store_true", help='use truck speed features or not')
-    parser.add_argument('--use_pv_spd', action="store_true", help='use personal vehicle speed features or not')
+    parser.add_argument('--use_dens', action="store_true", help='use density features or not')
+    parser.add_argument('--use_spd_all', action="store_true", help='use speed data of <all vehicles> or not')
+    parser.add_argument('--use_spd_truck', action="store_true", help='use speed data of <truck> or not')
+    parser.add_argument('--use_spd_pv', action="store_true", help='use speed data of <personal vehicles> or not')
     
-    # fow now we don't use embedding for incident and density, as they are ordinal variables and are already embedded in new_X.npy
+    # fow now we don't use embedding for incident and density, as they are ordinal variables and are already embedded in data processing
     # therefore, we don't use the following arguments 
     # parser.add_argument('--in_feat_dim', type=int, help='numeric_feat_dim + incident_feat_dim * incident_embed_dim')
     # parser.add_argument('--incident_feat_dim', type=int, help='length of incident features')
@@ -339,14 +339,14 @@ if __name__ == '__main__':
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
 
     # Change input dimension based on task type and whether to use new features or not
-    if not args.use_density:
-        args.in_dim -= 403 
-    if not args.use_speed:
-        args.in_dim -= 403
-    if not args.use_truck_spd:
-        args.in_dim -= 143
-    if not args.use_pv_spd:
-        args.in_dim -= 143
+    if not args.use_dens:
+        args.in_dim -= 207 
+    if not args.use_spd_all:
+        args.in_dim -= 207
+    if not args.use_spd_truck:
+        args.in_dim -= 207
+    if not args.use_spd_pv:
+        args.in_dim -= 207
 
     # 2. Execute Training Pipeline
     main(args)

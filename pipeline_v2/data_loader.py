@@ -11,25 +11,26 @@ class TrafficData(Dataset):
     def __init__(self, args):
         self.args = args  
         
-        X_path = f"{self.args.data_dir}/new_X_v2.npy"  # store sequence features frequency of 5 min
-        Y_path = f"{self.args.data_dir}/new_Y_v2.npy"  # store true speed & incident data in frequency of 5 min (TMC & XD)
+        X_path = f"{self.args.data_dir}/new_in_5min.npy"  # sequence features of TMC segments in frequency of 5 min
+        Y_path = f"{self.args.data_dir}/new_out_5min.npy"  # ground truth of TMC speed & incident data in frequency of 5 min
 
         self.all_X = torch.from_numpy(np.load(X_path)).float()  # (21060, feat_dim)
 
-        self.Y = torch.from_numpy(np.load(Y_path)).float()  # (21060, num_seg, 2) the last dimension refers to 1. speed and 2. incident status
+        # (21060, num_seg, 4) the last dimension refers to 1. speed of all vehicles, 2. speed of truck, 3. speed of personal vehicles, 4. incident status
+        self.Y = torch.from_numpy(np.load(Y_path)).float()  
 
         # change input based on whether to use new features or not
         new_feat_indices = []
-        if args.use_density:
-            new_feat_indices.append(args.density_indices)
-        if args.use_speed:
-            new_feat_indices.append(args.speed_indices)
-        if args.use_truck_spd:
-            new_feat_indices.append(args.truck_spd_indices)
-        if args.use_pv_spd:
-            new_feat_indices.append(args.pv_spd_indices)
+        if args.use_dens:
+            new_feat_indices.append(args.indices_dens)
+        if args.use_spd_all:
+            new_feat_indices.append(args.indices_spd_all)
+        if args.use_spd_truck:
+            new_feat_indices.append(args.indices_spd_truck)
+        if args.use_spd_pv:
+            new_feat_indices.append(args.indices_spd_pv)
         
-        self.X = self.all_X[:, args.pv_spd_indices[1]:]  # 21060, 479
+        self.X = self.all_X[:, args.indices_spd_pv[1]:]  # (21060, 642)
         for i, j in new_feat_indices:
             self.X = torch.cat([self.all_X[:, i:j], self.X], axis=1)
         
