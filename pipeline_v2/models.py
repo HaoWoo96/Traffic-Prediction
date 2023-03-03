@@ -83,7 +83,7 @@ class Seq2SeqFact(nn.Module):
 
         # generate final speed prediction
         if self.args.use_gt_inc:
-                speed_pred = rec_out * (target[..., 3] < 1.0) + nonrec_out * (target[..., 3] >= 1.0)
+                speed_pred = rec_out * (target[..., 3] == 0.0) + nonrec_out * (target[..., 3] == 1.0)
         else:
             if self.args.use_expectation:
                 rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out

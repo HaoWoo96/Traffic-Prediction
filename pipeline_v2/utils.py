@@ -39,7 +39,7 @@ def visualize_attn_weight(attn_weight, args, title, save_path):
     # x-axis
     img.xaxis.set_ticks_position("top")
     img.xaxis.set_tick_params(direction='out', pad=5)
-    img.set_xticklabels([f"t + {i*args.out_freq} min" for i in range(1,args.out_seq_len+1)], ha="left", rotation=45, rotation_mode='anchor')
+    img.set_xticklabels([f"t + {i*args.freq_out} min" for i in range(1,args.seq_len_out+1)], ha="left", rotation=45, rotation_mode='anchor')
 
     # x-label
     img.xaxis.set_label_position('top')
@@ -48,7 +48,7 @@ def visualize_attn_weight(attn_weight, args, title, save_path):
     # y-axis
     img.yaxis.set_ticks_position("left")
     img.yaxis.set_tick_params(direction='out', pad=10)
-    img.set_yticklabels([f"t - {i*5} min" if i>0 else "t" for i in range(args.in_seq_len)], rotation=360)
+    img.set_yticklabels([f"t - {i*5} min" if i>0 else "t" for i in range(args.seq_len_in)], rotation=360)
 
     # y-label
     img.yaxis.set_label_position('left')
@@ -87,8 +87,8 @@ def log_train_meta(args):
 
     logging.info('{:*^100}'.format(" DATA INFORMATION "))
     #logging.info(f"Ground Truth Speed Data Source: {args.gt_type}")
-    logging.info(f"Use Density: {args.use_density}; Use Truck Speed: {args.use_truck_spd}; Use Personal Vehicle Speed: {args.use_pv_spd}; Use Raw Speed: {args.use_speed}")
-    logging.info(f"Input Sequence Length: {args.in_seq_len}; Output Sequence Lenth: {args.out_seq_len}; Output Frequency: {args.out_freq} \n")
+    logging.info(f"Use Density: {args.use_dens}; Use All Speed: {args.use_spd_all}; Use Truck Speed: {args.use_spd_truck}; Use Personal Vehicle Speed: {args.use_spd_pv}; ")
+    logging.info(f"Input Sequence Length: {args.seq_len_in}; Output Sequence Lenth: {args.seq_len_out}; Output Frequency: {args.freq_out} \n")
 
     logging.info('{:*^100}'.format(" LOADING PROGRESS "))
 
@@ -114,8 +114,8 @@ def log_eval_meta(args):
     logging.info(f"Teacher Forcing Ratio: {args.teacher_forcing_ratio} \n")
 
     logging.info('{:*^100}'.format(" DATA INFORMATION "))
-    logging.info(f"Use Density: {args.use_density}; Use Truck Speed: {args.use_truck_spd}; Use Personal Vehicle Speed: {args.use_pv_spd}; Use Raw Speed: {args.use_speed}")
-    logging.info(f"Input Sequence Length: {args.in_seq_len}; Output Sequence Lenth: {args.out_seq_len}; Output Frequency: {args.out_freq} \n")
+    logging.info(f"Use Density: {args.use_dens}; Use Raw Speed: {args.use_spd_all}; Use Truck Speed: {args.use_spd_truck}; Use Personal Vehicle Speed: {args.use_spd_pv}")
+    logging.info(f"Input Sequence Length: {args.seq_len_in}; Output Sequence Lenth: {args.seq_len_out}; Output Frequency: {args.freq_out} \n")
 
     logging.info('{:*^100}'.format(" LOADING PROGRESS "))
 

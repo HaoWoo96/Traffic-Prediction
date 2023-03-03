@@ -71,11 +71,11 @@ class DecoderRNN(nn.Module):
     def forward(self, target, hidden):
         '''
         INPUTs
-            target: (batch_size, out_seq_len, dim_out), the entries in the last dimension is either speed data or incident status
+            target: (batch_size, seq_len_out, dim_out), the entries in the last dimension is either speed data or incident status
             hidden: the hidden tensor computed from encoder, (num_layer, batch_size, dim_hidden) 
 
         OUTPUTs
-            output: (batch_size, out_seq_len, dim_out) 
+            output: (batch_size, seq_len_out, dim_out) 
             hidden: (num_layer, batch_size, dim_hidden)
         '''
         use_teacher_forcing = True if random.random() < self.args.teacher_forcing_ratio else False
@@ -83,14 +83,14 @@ class DecoderRNN(nn.Module):
         output = []
         if use_teacher_forcing:
             # Teacher forcing: Feed the target as the next input
-            for i in range(self.args.out_seq_len-1):
+            for i in range(self.args.seq_len_out-1):
                 x = target[:, i, :].unsqueeze(1)  # Teacher forcing, (batch_size, 1, dim_out)
                 temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
                 output.append(self.out(temp_out))
         else:
             # Without teacher forcing: use its own predictions as the next input
             x = target[:, 0, :].unsqueeze(1)
-            for i in range(self.args.out_seq_len-1):
+            for i in range(self.args.seq_len_out-1):
                 temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
                 temp_out = self.out(temp_out) 
                 output.append(temp_out)
@@ -128,14 +128,14 @@ class AttnDecoderRNN(nn.Module):
     def forward(self, target, hidden, enc_output):
         '''
         INPUTs
-            target: (batch_size, out_seq_len, dim_out), the entries in the last dimension is either speed data or incident status
+            target: (batch_size, seq_len_out, dim_out), the entries in the last dimension is either speed data or incident status
             hidden: the hidden tensor computed from encoder, (dec_num_layer, batch_size, dim_hidden) 
             enc_output: (batch_size, seq_len_in, dim_hidden)
 
         OUTPUTs
-            output: (batch_size, out_seq_len, dim_out) 
+            output: (batch_size, seq_len_out, dim_out) 
             hidden: (num_layer, batch_size, dim_hidden)
-            attn_weights: (batch_size, out_seq_len, seq_len_in)
+            attn_weights: (batch_size, seq_len_out, seq_len_in)
         '''
         use_teacher_forcing = True if random.random() < self.args.teacher_forcing_ratio else False
 
@@ -144,7 +144,7 @@ class AttnDecoderRNN(nn.Module):
 
         if use_teacher_forcing:
             # Teacher forcing: Feed the target as the next input
-            for i in range(self.args.out_seq_len):
+            for i in range(self.args.seq_len_out):
                 x = target[:, i, :].unsqueeze(1)  # Teacher forcing, (batch_size, 1, dim_out)
 
                 # extract the top most hidden tensor, concat it with target input, and compute attention weights
@@ -163,7 +163,7 @@ class AttnDecoderRNN(nn.Module):
         else:
             # Without teacher forcing: use its own predictions as the next input
             x = target[:, 0, :].unsqueeze(1)  # (batch_size, 1, dim_out)
-            for i in range(self.args.out_seq_len):
+            for i in range(self.args.seq_len_out):
 
                 # extract the top most hidden tensor, concat it with target input, and compute attention weights
                 attn_weight = F.softmax(self.attn_weight(torch.cat(tensors=(x, hidden[-1, :, :].unsqueeze(1)), dim=2)), dim=2)  # (batch_size, 1, seq_len_in)
@@ -253,7 +253,7 @@ class DecoderMLP(nn.Module):
         super(DecoderMLP, self).__init__()
         self.args = args
 
-        final_dim = args.dim_out * args.out_seq_len
+        final_dim = args.dim_out * args.seq_len_out
 
         self.decoder = nn.Sequential(
             nn.Linear(args.dim_in*args.seq_len_in, 2048),
@@ -267,12 +267,12 @@ class DecoderMLP(nn.Module):
             x: input, (batch_size, seq_len_in, dim_in)
 
         OUTPUTs
-            result: speed prediction or incident status prediction, (batch_size, out_seq_len, dim_out)
+            result: speed prediction or incident status prediction, (batch_size, seq_len_out, dim_out)
         '''
         batch_size = x.size(0)
-        result = self.decoder(x.view(batch_size, -1))  # (batch_size, out_seq_len * dim_out)
+        result = self.decoder(x.view(batch_size, -1))  # (batch_size, seq_len_out * dim_out)
 
-        return result.view(batch_size, self.args.out_seq_len, self.args.dim_out)
+        return result.view(batch_size, self.args.seq_len_out, self.args.dim_out)
 
 
 

@@ -23,8 +23,8 @@ def train(train_dataloader, model, opt, epoch, args, writer):
 
     for i, batch in enumerate(train_dataloader):
         x, target = batch
-        x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
-        target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2 or 4) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
+        x = x.to(args.device)  # (batch_size, in_seq_len, dim_in)
+        target = target.to(args.device)  # (batch_size, out_seq_len + 1, dim_out, 2 or 4) for TrafficModel, (batch_size, out_seq_len + 1, dim_out) for TrafficSeq2Seq
 
         # Forward Pass
         # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
@@ -40,9 +40,9 @@ def train(train_dataloader, model, opt, epoch, args, writer):
             # register hook to only consider certain segments for the computation of loss
             if args.task in {"rec", "nonrec"}:
                 if args.task == "rec":
-                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] < 1.0).float())
+                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] == 0.0).float())
                 else:
-                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] >= 1.0).float())
+                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] == 1.0).float())
             loss = criterion(pred, target[:, 1:, :, 0])
 
         epoch_loss += loss
@@ -73,8 +73,8 @@ def test(test_dataloader, model, epoch, args, writer):
 
     for i, batch in enumerate(test_dataloader):
         x, target = batch
-        x = x.to(args.device)  # (batch_size, in_seq_len, in_dim)
-        target = target.to(args.device)  # (batch_size, out_seq_len + 1, out_dim, 2) for TrafficModel, (batch_size, out_seq_len + 1, out_dim) for TrafficSeq2Seq
+        x = x.to(args.device)  # (batch_size, in_seq_len, dim_in)
+        target = target.to(args.device)  # (batch_size, out_seq_len + 1, dim_out, 2) for TrafficModel, (batch_size, out_seq_len + 1, dim_out) for TrafficSeq2Seq
 
         with torch.no_grad():
             # Forward Pass
@@ -252,7 +252,7 @@ def create_parser():
     parser.add_argument('--seq_len_out', type=int, default=6, help='sequence length of output')
     parser.add_argument('--freq_out', type=int, default=5, help='frequency of output data')
 
-    parser.add_argument('--inc_threshold', type=float, default=0.1, help='threshold of a prediction be considered as an incident')
+    parser.add_argument('--inc_threshold', type=float, default=0.5, help='threshold of a prediction be considered as an incident')
     parser.add_argument('--use_expectation', action="store_true", help='use expectation of speed prediction as model output')
 
     # Assuming perfect incident status prediction at stage 1 of the 2-stage model (Traffic)
@@ -334,19 +334,19 @@ if __name__ == '__main__':
     # Task specific directories
     args.log_dir += f"/{args.task}"
     args.checkpoint_dir += f"/{args.task}" 
-    args.exp_name += f"_{str(args.use_density)[0]}_{str(args.use_truck_spd)[0]}_{str(args.use_pv_spd)[0]}_{args.in_seq_len}_{args.out_seq_len}_{args.out_freq}_{str(args.use_expectation)[0]}" 
+    args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_{str(args.use_expectation)[0]}" 
     if args.load_checkpoint_epoch > 0:
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
 
     # Change input dimension based on task type and whether to use new features or not
     if not args.use_dens:
-        args.in_dim -= 207 
+        args.dim_in -= 207 
     if not args.use_spd_all:
-        args.in_dim -= 207
+        args.dim_in -= 207
     if not args.use_spd_truck:
-        args.in_dim -= 207
+        args.dim_in -= 207
     if not args.use_spd_pv:
-        args.in_dim -= 207
+        args.dim_in -= 207
 
     # 2. Execute Training Pipeline
     main(args)

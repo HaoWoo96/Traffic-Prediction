@@ -11,8 +11,8 @@ class TrafficData(Dataset):
     def __init__(self, args):
         self.args = args  
         
-        X_path = f"{self.args.data_dir}/new_in_5min.npy"  # sequence features of TMC segments in frequency of 5 min
-        Y_path = f"{self.args.data_dir}/new_out_5min.npy"  # ground truth of TMC speed & incident data in frequency of 5 min
+        X_path = f"{self.args.data_dir}/np_in_5min.npy"  # sequence features of TMC segments in frequency of 5 min
+        Y_path = f"{self.args.data_dir}/np_out_5min.npy"  # ground truth of TMC speed & incident data in frequency of 5 min
 
         self.all_X = torch.from_numpy(np.load(X_path)).float()  # (21060, feat_dim)
 
@@ -39,11 +39,11 @@ class TrafficData(Dataset):
 
     def __getitem__(self, idx):
         x_idx_base = idx // 180
-        x_idx_remain = min(max(idx % 180, 6, self.args.in_seq_len-1), np.floor(186 - self.args.out_seq_len)) # ensure we have valid idx based on input and output sequence length
+        x_idx_remain = min(max(idx % 180, 6, self.args.seq_len_in-1), np.floor(186 - self.args.seq_len_out)) # ensure we have valid idx based on input and output sequence length
         idx = int(x_idx_remain + x_idx_base * 180)
-        Y_idx = [idx-6 + i for i in range(self.args.out_seq_len+1)]  # be careful, the starting point (first idx) of Y is the same as the last idx of X, and won't count into output sequence length
+        Y_idx = [idx-6 + i for i in range(self.args.seq_len_out+1)]  # be careful, the starting point (first idx) of Y is the same as the last idx of X, and won't count into output sequence length
         
-        X = self.X[(idx-self.args.in_seq_len+1):idx+1, :]
+        X = self.X[(idx-self.args.seq_len_in+1):idx+1, :]
         Y = self.Y[Y_idx, :, :]
 
         return X, Y
@@ -55,7 +55,7 @@ def get_data_loader(args):
     """
     whole_dataset = TrafficData(args=args)
 
-    train_size = int(np.ceil(args.train_ratio * len(whole_dataset)))
+    train_size = int(np.ceil(args.data_train_ratio * len(whole_dataset)))
     test_size = len(whole_dataset) - train_size
 
     # split train and test dataset
