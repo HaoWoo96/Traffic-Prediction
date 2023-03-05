@@ -9,6 +9,8 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 ##########################
 #     1. RNN Modules     #
 ##########################
+# ----------------------------------------- TODO -----------------------------------------
+# TODO - need to rewrite the MLP part (add dropout and activation)
 class EncoderRNN(nn.Module):
     def __init__(self, args):
         super(EncoderRNN, self).__init__()
@@ -16,12 +18,29 @@ class EncoderRNN(nn.Module):
 
         # self.incident_start, self.incident_end = args.incident_indices  # starting and ending indices of categorical features (incident)
         # self.incident_embedding = nn.Embedding(num_embeddings=args.incident_range, embedding_dim=args.incident_embed_dim)
+
+        # self.input_processing = nn.Sequential(
+        #         nn.Dropout(args.dropout_prob),
+        #         nn.Linear(args.dim_in, 2*args.dim_hidden)
+        #         )
+
+        # start from args.dim_in (1470) -> 1024 -> 512 -> args.hidden_dim (256)
+
+        # I decide not to use batchnorm here since the input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
         self.input_processing = nn.Sequential(
+                nn.Linear(args.dim_in, 4*args.dim_hidden),
+                # nn.BatchNorm1d(num_features=4*args.dim_hidden, device=args.device),
+                nn.ReLU(),
                 nn.Dropout(args.dropout_prob),
-                nn.Linear(args.dim_in, 2*args.dim_hidden)
+                nn.Linear(4*args.dim_hidden, 2*args.dim_hidden),
+                # nn.BatchNorm1d(num_features=2*args.dim_hidden, device=args.device),
+                nn.ReLU(),
+                nn.Dropout(args.dropout_prob),
+                nn.Linear(2*args.dim_hidden, args.dim_hidden),
+                nn.Dropout(args.dropout_prob),
                 )
-        # self.gru = nn.GRU(input_size=2*args.dim_hidden, hidden_size=args.dim_hidden, num_layers=args.num_layer, batch_first=True)
-        self.gru = nn.GRU(input_size=args.dim_in, hidden_size=args.dim_hidden, num_layers=args.num_layer, batch_first=True)
+        self.gru = nn.GRU(input_size=4*args.dim_hidden, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
+        # self.gru = nn.GRU(input_size=args.dim_in, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
 
     def forward(self, x, hidden):
         '''
@@ -37,16 +56,16 @@ class EncoderRNN(nn.Module):
         # embedded_input = torch.cat((input[:self.incident_start], embedded_incident_feat, input[self.incident_end:]), dim=-1)  # (batch_size, seq_len_in, in_feat_dim)
         # output, hidden = self.gru(embedded_input, hidden)
 
-        # processed_input = self.input_processing(x)
-        # output, hidden = self.gru(processed_input, hidden)
-        output, hidden = self.gru(x, hidden)
+        processed_input = self.input_processing(x)
+        output, hidden = self.gru(processed_input, hidden)
+        # output, hidden = self.gru(x, hidden)
 
         return output, hidden
 
     def initHidden(self, batch_size):
         # here we supply an argument batch_size instead of using self.args.batch_size
         # because the last batch may not have full batch_size
-        return torch.zeros(self.args.num_layer, batch_size, self.args.dim_hidden, device=self.args.device)
+        return torch.zeros(self.args.num_layer_GRU, batch_size, self.args.dim_hidden, device=self.args.device)
         
 
 # RNN Decoder without Attention
@@ -55,17 +74,33 @@ class DecoderRNN(nn.Module):
         '''
         INPUTs
             args: arguments
-            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "R": for speed prediction)
+            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "R": for regression of speed prediction)
         '''
         super(DecoderRNN, self).__init__()
         self.args = args
         self.dec_type = dec_type
 
-        self.gru = nn.GRU(input_size=args.dim_out, hidden_size=args.dim_hidden, num_layers=args.num_layer, batch_first=True)
+        self.gru = nn.GRU(input_size=args.dim_out, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
         
+        # self.out = nn.Sequential(
+        #         nn.Linear(args.dim_hidden, args.dim_out),
+        #         nn.Linear(args.dim_out, args.dim_out)
+        #         )
+
+        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207
+
+        # I decide not to use batchnorm here since the input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
         self.out = nn.Sequential(
+                nn.Linear(args.dim_hidden, args.dim_hidden),
+                # nn.BatchNorm1d(num_features=args.dim_hidden, device=args.device),
+                nn.ReLU(),
+                nn.Dropout(args.dropout_prob),
                 nn.Linear(args.dim_hidden, args.dim_out),
-                nn.Linear(args.dim_out, args.dim_out)
+                # nn.BatchNorm1d(num_features=args.dim_out, device=args.device),
+                nn.ReLU(),
+                nn.Dropout(args.dropout_prob),
+                nn.Linear(args.dim_out, args.dim_out),
+                nn.Dropout(args.dropout_prob)
                 )
 
     def forward(self, target, hidden):
@@ -117,11 +152,26 @@ class AttnDecoderRNN(nn.Module):
         self.attn_weight = nn.Linear(dim_out + args.dim_hidden, args.seq_len_in)
         self.attn_combine = nn.Linear(dim_out + args.dim_hidden, dim_out)
 
-        self.gru = nn.GRU(input_size=dim_out, hidden_size=args.dim_hidden, num_layers=args.num_layer, batch_first=True)
+        self.gru = nn.GRU(input_size=dim_out, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
         
+        # self.out = nn.Sequential(
+        #         nn.Linear(args.dim_hidden, dim_out),
+        #         nn.Linear(dim_out, dim_out)
+        #         )
+        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207
+
+        # I decide not to use batchnorm here since the input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
         self.out = nn.Sequential(
-                nn.Linear(args.dim_hidden, dim_out),
-                nn.Linear(dim_out, dim_out)
+                nn.Linear(args.dim_hidden, args.dim_hidden),
+                # nn.BatchNorm1d(num_features=args.dim_hidden, device=args.device),
+                nn.ReLU(),
+                nn.Dropout(args.dropout_prob),
+                nn.Linear(args.dim_hidden, args.dim_out),
+                # nn.BatchNorm1d(num_features=args.dim_out, device=args.device),
+                nn.ReLU(),
+                nn.Dropout(args.dropout_prob),
+                nn.Linear(args.dim_out, args.dim_out),
+                nn.Dropout(args.dropout_prob)
                 )
     
 
@@ -196,7 +246,7 @@ class PosEmbed(nn.Module):
         super(PosEmbed, self).__init__()
         self.dropout = nn.Dropout(p=args.dropout)
         
-        position = torch.arange(args.seq_len_in).unsqueeze(0)
+        position = torch.arange(args.seq_len_in).unsqueeze(0) # (1, seq_len_in)
         div_term = torch.exp(torch.arange(0, args.dim_in, 2)*(-math.log(10000.0) / args.dim_in))
         self.pe = torch.zeros(1, args.seq_len_in, args.dim_in)
         self.pe[0, :, 0::2] = torch.sin(position * div_term)
@@ -219,6 +269,34 @@ class PosEmbed(nn.Module):
 
 # Transformer Encoder
 class EncoderTrans(nn.Module):
+    def __init__(self, args):
+        super(EncoderTrans, self).__init__()
+        self.args = args
+
+        self.pos_encoder = PosEmbed(args)
+        self.trans_encoder_layers = TransformerEncoderLayer(d_model=args.dim_in, nhead=args.num_head, dropout=args.dropout, batch_first=True, norm_first=True)  # layer normalization should be first, otherwise the training will be very difficult
+        self.trans_encoder = TransformerEncoder(encoder_layers=self.trans_encoder_layers, nlayers=args.num_trans_layers)
+
+        # Generates an upper-triangular matrix of -inf, with zeros on diag.
+        # The masked positions (upper triangular area, excluding diag) are filled with float('-inf'). 
+        # Unmasked positions (lower triangular area, including diag) are filled with float(0.0).
+        self.mask = torch.triu(torch.ones(args.seq_len_in, args.seq_len_in) * float('-inf'), diagonal=1)  # size (seq_len_in, seq_len_in)
+
+    def forward(self, x):
+        '''
+        INPUTs
+            x: input, (batch_size, seq_len_in, dim_in)
+        OUTPUTs
+            output: (batch_size, seq_len_in, dim_in)
+        '''
+        new_x = x * math.sqrt(self.args.dim_in)
+        new_x = self.pos_encoder(new_x)
+        output = self.transformer_encoder(new_x, self.mask)
+        return output
+
+# ----------------------------------------- TODO -----------------------------------------
+# Transformer Decoder
+class DecoderTrans(nn.Module):
     def __init__(self, args):
         super(EncoderTrans, self).__init__()
         self.args = args
@@ -253,7 +331,7 @@ class DecoderMLP(nn.Module):
         super(DecoderMLP, self).__init__()
         self.args = args
 
-        final_dim = args.dim_out * args.seq_len_out
+        final_dim = args.dim_out * args.out_seq_len
 
         self.decoder = nn.Sequential(
             nn.Linear(args.dim_in*args.seq_len_in, 2048),
@@ -267,12 +345,12 @@ class DecoderMLP(nn.Module):
             x: input, (batch_size, seq_len_in, dim_in)
 
         OUTPUTs
-            result: speed prediction or incident status prediction, (batch_size, seq_len_out, dim_out)
+            result: speed prediction or incident status prediction, (batch_size, out_seq_len, dim_out)
         '''
         batch_size = x.size(0)
-        result = self.decoder(x.view(batch_size, -1))  # (batch_size, seq_len_out * dim_out)
+        result = self.decoder(x.view(batch_size, -1))  # (batch_size, out_seq_len * dim_out)
 
-        return result.view(batch_size, self.args.seq_len_out, self.args.dim_out)
+        return result.view(batch_size, self.args.out_seq_len, self.args.dim_out)
 
 
 
@@ -322,7 +400,7 @@ class TemporalModule(nn.Module):
             dropout=args.dropout,
             batch_first=True
             )
-        self.encoder = nn.TransformerEncoder(encoder_layer=self.encoder_layer, num_layers=args.num_layer) 
+        self.encoder = nn.TransformerEncoder(encoder_layer=self.encoder_layer, num_layers=args.num_layer_Trans) 
 
     def forward(self, x):
         '''

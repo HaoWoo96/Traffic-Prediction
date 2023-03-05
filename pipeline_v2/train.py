@@ -7,7 +7,7 @@ import sys
 
 from torch.utils.tensorboard import SummaryWriter
 
-from models import Seq2SeqNoFact, Seq2SeqFact
+from models import *
 from data_loader import get_data_loader
 from utils import save_checkpoint, create_dir, log_train_meta
 
@@ -40,9 +40,9 @@ def train(train_dataloader, model, opt, epoch, args, writer):
             # register hook to only consider certain segments for the computation of loss
             if args.task in {"rec", "nonrec"}:
                 if args.task == "rec":
-                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] == 0.0).float())
+                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] < 0.5).float())
                 else:
-                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] == 1.0).float())
+                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] >= 0.5).float())
             loss = criterion(pred, target[:, 1:, :, 0])
 
         epoch_loss += loss
@@ -67,7 +67,7 @@ def train(train_dataloader, model, opt, epoch, args, writer):
 
 def test(test_dataloader, model, epoch, args, writer):
 
-    model.eval() # deactivate dropout
+    model.eval() # deactivate dropout, and adjust for batch normalization
     step = epoch*len(test_dataloader)
     epoch_loss = 0
 
@@ -119,10 +119,20 @@ def main(args):
     log_train_meta(args)
 
     # 3. Initialize Model
-    if args.task != "base":
-        model = Seq2SeqFact(args).to(args.device)
+    if args.task != "no_fact":
+        if args.model_type == "Seq2Seq":
+            model = Seq2SeqFact(args).to(args.device)
+        elif args.model_type == "Trans":
+            model = TransFact(args).to(args.device)
+        else:
+            model = STGCNNoFact(args).to(args.device)
     else:
-        model = Seq2SeqNoFact(args).to(args.device)
+        if args.model_type == "Seq2Seq":
+            model = Seq2SeqNoFact(args).to(args.device)
+        elif args.model_type == "Trans":
+            model = TransNoFact(args).to(args.device)
+        else:
+            model = STGCNFact(args).to(args.device)
 
     # 4. Load Checkpoint 
     if args.load_checkpoint:
@@ -243,10 +253,13 @@ def create_parser():
     parser = argparse.ArgumentParser()
 
     # 1. Model hyper-parameters
-    parser.add_argument('--num_layer', type=int, default=2, help='Number of stacked GRUs in encoder and decoder')
+    parser.add_argument('--model_type', type=str, help="Choose one from 'Seq2Seq', 'Trans', 'STGCN'")
+
+    parser.add_argument('--num_layer_GRU', type=int, default=2, help='Number of stacked GRUs in encoder and decoder')
+    parser.add_argument('--num_layer_Trans', type=int, default=2, help='Number of transformer encoder/decoder layers')
     parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension in encoder and decoder')
     parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='threshold of teacher forcing')
-    parser.add_argument('--dropout_prob', type=float, default=0.1, help='threshold of teacher forcing')
+    parser.add_argument('--dropout_prob', type=float, default=0.1, help='dropout probability')
 
     parser.add_argument('--seq_len_in', type=int, default=7, help='sequence length of input')
     parser.add_argument('--seq_len_out', type=int, default=6, help='sequence length of output')
@@ -292,12 +305,12 @@ def create_parser():
         2. "rec": call train_rec() for speed prediction, freeze encoder, train rec_decoder
         3. "nonrec": call_train_nonrec() for speed prediction, freeze encoder, train nonrec_decoder
         4. "finetune": call_finetune() for speed prediction, load checkpoint of encoder, LR_decoder, rec_decoder and nonrec_decoder, and finetune them together
-        5. “base": 
-            - train TrafficSeq2Seq model
+        5. "no_fact": 
+            - train a model without Factorization
             - input: no new features
             - output: in 5-min frequency
     '''
-    parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'base'")
+    parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'no_fact'")
 
     parser.add_argument('--num_epochs', type=int, default=401, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
@@ -313,7 +326,7 @@ def create_parser():
     parser.add_argument('--log_dir', type=str, default='./logs')
 
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
-    parser.add_argument('--checkpoint_every', type=int , default=10)
+    parser.add_argument('--checkpoint_every', type=int , default=20)
 
     parser.add_argument('--load_checkpoint', type=str, default='', help='Name of the checkpoint')
     parser.add_argument('--load_checkpoint_epoch', type=int, default=-1, help='Epoch of the checkpoint')
@@ -334,7 +347,12 @@ if __name__ == '__main__':
     # Task specific directories
     args.log_dir += f"/{args.task}"
     args.checkpoint_dir += f"/{args.task}" 
+
+    args.exp_name = args.model_type
+    if args.task == "no_fact":
+        args.exp_name += "_no_fact"
     args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_{str(args.use_expectation)[0]}" 
+
     if args.load_checkpoint_epoch > 0:
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
 

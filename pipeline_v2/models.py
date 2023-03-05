@@ -8,7 +8,10 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 from modules import EncoderRNN, EncoderTrans, PosEmbed, DecoderRNN, DecoderMLP, AttnDecoderRNN, STBlock
 
-# 1. Sequence-to-sequence Model without Factorization
+##########################
+#     1. Seq-to-seq      #
+##########################
+# 1.1 Sequence-to-sequence Model without Factorization
 class Seq2SeqNoFact(nn.Module):
     '''
     Proposed seq2seq model in "Learning to Recommend Signal Plans under Incidents with Real-Time Traffic Prediction"
@@ -42,7 +45,7 @@ class Seq2SeqNoFact(nn.Module):
 
         return dec_out, dec_hidden, attn_weights
 
-# 2. Sequence-to-sequence Model with Factorization
+# 1.2 Sequence-to-sequence Model with Factorization
 class Seq2SeqFact(nn.Module):
     def __init__(self, args):
         super(Seq2SeqFact, self).__init__()
@@ -83,7 +86,7 @@ class Seq2SeqFact(nn.Module):
 
         # generate final speed prediction
         if self.args.use_gt_inc:
-                speed_pred = rec_out * (target[..., 3] == 0.0) + nonrec_out * (target[..., 3] == 1.0)
+            speed_pred = rec_out * (target[..., 3] < 0.5) + nonrec_out * (target[..., 3] >= 0.5)
         else:
             if self.args.use_expectation:
                 rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
@@ -101,7 +104,12 @@ class Seq2SeqFact(nn.Module):
         else:
             return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
 
-# 3. Transformer Model without Factorization
+
+##########################
+#     2. Transformer     #
+##########################
+# ----------------------------------------- TODO -----------------------------------------
+# 2.1 Transformer Model without Factorization
 class TransNoFact(nn.Module):
     def __init__(self, args):
         super(TransNoFact, self).__init__()
@@ -122,8 +130,8 @@ class TransNoFact(nn.Module):
 
         return dec_out
 
-
-# 4. Transformer Model with Factorization
+# ----------------------------------------- TODO -----------------------------------------
+# 2.2 Transformer Model with Factorization
 class TransFact(nn.Module):
     def __init__(self, args):
         super(Seq2SeqFact, self).__init__()
@@ -156,30 +164,18 @@ class TransFact(nn.Module):
         rec_out = self.rec_decoder(enc_out)
         nonrec_out = self.nonrec_decoder(enc_out)
 
-        if self.args.gt_type == "tmc":
-            # generate final speed prediction
-            if self.args.use_gt_inc:  
-                # use ground truth incident prediction as 0-1 mask
-                speed_pred = rec_out * (target[..., 3].repeat(1,1,3) <= 0.5) + nonrec_out * (target[..., 3].repeat(1,1,3) > 0.5)
-            else:
-                if self.args.use_expectation:
-                    # compute speed prediction as expectation
-                    rec_weight = torch.ones(LR_out.repeat(1,1,3).size()).to(self.args.device) - LR_out.repeat(1,1,3)
-                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out.repeat(1,1,3) 
-                else:
-                    # compute speed prediction based on predicted 0-1 mask
-                    speed_pred = rec_out * (LR_out.repeat(1,1,3) <= self.args.inc_threshold) + nonrec_out * (LR_out.repeat(1,1,3) > self.args.inc_threshold)
-       
+        # generate final speed prediction
+        if self.args.use_gt_inc:  
+            # use ground truth incident prediction as 0-1 mask
+            speed_pred = rec_out * (target[..., 3] <= 0.5) + nonrec_out * (target[..., 3] > 0.5)
         else:
-            # generate final speed prediction
-            if self.args.use_gt_inc:
-                    speed_pred = rec_out * (target[..., 3] < 1.0) + nonrec_out * (target[..., 3] >= 1.0)
+            if self.args.use_expectation:
+                # compute speed prediction as expectation
+                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
+                speed_pred = rec_out * rec_weight + nonrec_out * LR_out
             else:
-                if self.args.use_expectation:
-                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
-                else:
-                    speed_pred = rec_out * (LR_out <= self.args.inc_threshold) + nonrec_out * (LR_out > self.args.inc_threshold)
+                # compute speed prediction based on predicted 0-1 mask
+                speed_pred = rec_out * (LR_out <= self.args.inc_threshold) + nonrec_out * (LR_out > self.args.inc_threshold)
 
 
         if self.args.task == "LR":
@@ -193,10 +189,14 @@ class TransFact(nn.Module):
 
 
 
-# 5. Spatial-temporal Model with GCN+Transformer Encoder
-class Model(nn.Module):
+##########################
+#         3. GNN         #
+##########################
+# ----------------------------------------- TODO -----------------------------------------
+# 3.1 Spatial-temporal Model with GCN+Transformer Encoder
+class STGCNNoFact(nn.Module):
     def __init__(self, args):
-        super(Model, self).__init__()
+        super(STGCNNoFact, self).__init__()
         self.learnable_embed = nn.init.normal_(torch.empty((args.dim_in - args.in_fixed_dim, ), requires_grad=True, device=args.device))
         self.in_linear = nn.Linear(args.dim_in, args.dim_hidden)
         self.spatial_temporal_blocks = nn.Sequential(
@@ -236,3 +236,7 @@ class Model(nn.Module):
         return result
 
 
+# ----------------------------------------- TODO -----------------------------------------
+# 3.2 STGCN with Factorization
+class STGCNFact(nn.Module):
+    pass

@@ -219,3 +219,193 @@ pipeline_v1/result/data/shapefile/.cranberry.shp.icloud
 pipeline_v1/result/data/shapefile/.cranberry.shx.icloud
 pipeline_v1/result/inference/thres_accu_recall.npy
 playground.ipynb
+data/columns_tmc.pkl
+data/cranberry_tmc_miles.pkl
+data/df_in_dens_tmc_5min.pkl
+data/df_in_sd_tmc_5min.pkl
+data/df_in_tti_tmc_5min.pkl
+data/df_spd_tmc_5min_all_207.pkl
+data/df_spd_tmc_5min_pv_207.pkl
+data/df_spd_tmc_5min_truck_207.pkl
+data/df_waze_5min_207.npy
+data/df_waze_5min_207.pkl
+data/dict_prev_tmc_v2.pkl
+data/dict_upstream_tmc_5_miles_v2.pkl
+data/dict_upstream_tmc_v2.pkl
+data/dict_upstream_unique_tmc_5_miles_v2.pkl
+data/dict_upstream_unique_tmc_v2.pkl
+data/incident_labels.csv
+data/np_in_5min.npy
+data/np_out_5min.npy
+data/rcrs_vis.pickle
+data/shape.zip
+data/tmc_to_xd_v2.pkl
+data/waze_df.pickle
+data/xd_to_tmc_v2.pkl
+data/Bin/.incident_labels_waze_rcrs_166_v2_m1_xd_v2.csv.icloud
+data/Bin/.speed.csv.icloud
+data/Bin/.weather_holiday.csv.icloud
+data/Bin/shapefile_cranberry_xd_20.1_v4/cran_xds_core.csv
+data/Bin/shapefile_cranberry_xd_20.1_v4/cran_xds_missing.csv
+data/Bin/shapefile_cranberry_xd_20.1_v4/cranberry_xd_v4.cpg
+data/Bin/shapefile_cranberry_xd_20.1_v4/cranberry_xd_v4.csv
+data/Bin/shapefile_cranberry_xd_20.1_v4/cranberry_xd_v4.prj
+data/Bin/shapefile_cranberry_xd_20.1_v4/cranberry_xd_v4.shp
+data/Bin/shapefile_cranberry_xd_20.1_v4/cranberry_xd_v4.shx
+data/old/.df_in_dens_tmc.pkl.icloud
+data/old/.df_in_dens_xd_5min.pkl.icloud
+data/old/.df_in_inc.pkl.icloud
+data/old/.df_in_sd_tmc.pkl.icloud
+data/old/.df_in_sd_xd_5min.pkl.icloud
+data/old/.df_in_tti_tmc.pkl.icloud
+data/old/.df_in_tti_xd_5min.pkl.icloud
+data/old/.df_in_wt.pkl.icloud
+data/old/.df_out_inc.pkl.icloud
+data/old/.df_spd_tmc_all.pkl.icloud
+data/old/.df_spd_tmc_pv.pkl.icloud
+data/old/.df_spd_tmc_truck.pkl.icloud
+data/old/.df_spd_xd_1min.pkl.icloud
+data/old/.df_spd_xd_5min.pkl.icloud
+data/old/.dict_upstream_xd_str_5_miles.pkl.icloud
+data/old/.dict_upstream_xd_str.pkl.icloud
+data/old/.new_X_v2.npy.icloud
+data/old/.new_Y_v2.npy.icloud
+data/old/.next_xd_5_miles.pkl.icloud
+data/old/.np_in.npy.icloud
+data/old/.np_out_tmc.npy.icloud
+data/old/.np_out_xd_5min.npy.icloud
+data/old/.old_Y.npy.icloud
+data/old/.waze_out_5_min_v2.npy.icloud
+data/old/columns_xd.pkl
+data/old/dict_prev_tmc.pkl
+data/old/dict_prev_xd.pkl
+data/old/dict_upstream_tmc_5_miles.pkl
+data/old/dict_upstream_tmc.pkl
+data/old/dict_upstream_unique_tmc_5_miles.pkl
+data/old/dict_upstream_unique_tmc.pkl
+data/old/dict_upstream_unique_xd_str_5_miles.pkl
+data/old/dict_upstream_unique_xd_str.pkl
+data/old/next_tmc_5_miles.pkl
+data/old/old_col.npy
+data/old/old_X.npy
+data/old/tmc_to_xd_v0.pkl
+data/old/tmc_xd_join_v0.csv
+data/old/xd_to_tmc_v0.pkl
+data/shape/tmc_shape_cranberry.zip
+data/shape/tmc_shape_PA.zip
+data/shape/TSMO_shape.zip
+data/shape/TSMO_shape/TSMO_consolidated_shapleflies/links.geojson
+data/shape/TSMO_shape/TSMO_consolidated_shapleflies/nodes.geojson
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_connector.cpg
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_connector.dbf
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_connector.prj
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_connector.shp
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_connector.shx
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_link.cpg
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_link.dbf
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_link.prj
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_link.shp
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_link.shx
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_node.cpg
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_node.dbf
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_node.prj
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_node.shp
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_node.shx
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_zone_centroid.cpg
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_zone_centroid.dbf
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_zone_centroid.prj
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_zone_centroid.shp
+data/shape/TSMO_shape/TSMO_shapefiles_from_QGIS/7.13 AM Visum_zone_centroid.shx
+data/shape/old/.core_xd_attr_v2_for_upstream.csv.icloud
+data/shape/old/.core_xd_attr_v2_for_upstream.xlsx.icloud
+data/shape/old/.core_xd_attr_v2.csv.icloud
+data/shape/old/.core_xd_attr.csv.icloud
+data/shape/old/.selected_xd_shape_PA.geojson.icloud
+data/shape/old/.selected_xd_tmc.geojson.icloud
+data/shape/old/.tmc_attr.csv.icloud
+data/shape/old/.xd_attr.csv.icloud
+data/shape/tmc_shape_PA/Pennsylvania.dbf
+data/shape/tmc_shape_PA/Pennsylvania.prj
+data/shape/tmc_shape_PA/Pennsylvania.shp
+data/shape/tmc_shape_PA/Pennsylvania.shx
+data/shape/tmc_shape_cranberry/tmc_cranberry_v2_with_direction.geojson
+data/shape/tmc_shape_cranberry/tmc_cranberry_v2.geojson
+data/shape/tmc_shape_cranberry/v1/cranberry.cpg
+data/shape/tmc_shape_cranberry/v1/cranberry.dbf
+data/shape/tmc_shape_cranberry/v1/cranberry.prj
+data/shape/tmc_shape_cranberry/v1/cranberry.qpj
+data/shape/tmc_shape_cranberry/v1/cranberry.shp
+data/shape/tmc_shape_cranberry/v1/cranberry.shx
+data/shape/tmc_shape_cranberry/v1/tmc_cranberry.geojson
+data/shape/tmc_shape_cranberry/v1/tmc_cranberry.qmd
+data/shape/xd_shape_PA/.United_States__Pennsylvania.dbf.icloud
+data/shape/xd_shape_PA/.United_States__Pennsylvania.shp.icloud
+data/shape/xd_shape_PA/United_States__Pennsylvania.prj
+data/shape/xd_shape_PA/United_States__Pennsylvania.shx
+data/shape/xd_shape_cranberry/intermediate_selected_XD_PA.geojson
+data/shape/xd_shape_cranberry/intermediate_selected_XD_PA.qmd
+data/shape/xd_shape_cranberry/xd_cranberry_for_sjoin_v2.geojson
+data/shape/xd_shape_cranberry/xd_cranberry_for_sjoin_v2.qmd
+data/shape/xd_shape_cranberry/v1/.xd_cranberry_for_sjoin.dbf.icloud
+data/shape/xd_shape_cranberry/v1/xd_cranberry_for_sjoin.cpg
+data/shape/xd_shape_cranberry/v1/xd_cranberry_for_sjoin.geojson
+data/shape/xd_shape_cranberry/v1/xd_cranberry_for_sjoin.prj
+data/shape/xd_shape_cranberry/v1/xd_cranberry_for_sjoin.qmd
+data/shape/xd_shape_cranberry/v1/xd_cranberry_for_sjoin.shp
+data/shape/xd_shape_cranberry/v1/xd_cranberry_for_sjoin.shx
+data/speed/cranberry_tmc_1min/cran_tmc_1min_all.csv
+data/speed/cranberry_tmc_1min/df_downsampled_dens_tmc_1min_all_1000.pkl
+data/speed/cranberry_tmc_1min/df_downsampled_spd_tmc_1min_all_1000.pkl
+data/speed/cranberry_tmc_1min/downsampled_cran_tmc_1min_all.csv
+data/speed/cranberry_tmc_5min/cran_2019_npmrds_all.zip
+data/speed/cranberry_tmc_5min/cran_2019_npmrds_pv.zip
+data/speed/cranberry_tmc_5min/cran_2019_npmrds_truck.zip
+data/speed/cranberry_tmc_5min/cran_tmc_5min_all.csv
+data/speed/cranberry_tmc_5min/cran_tmc_5min_pv.csv
+data/speed/cranberry_tmc_5min/cran_tmc_5min_truck.csv
+data/speed/cranberry_tmc_5min/df_downsampled_dens_tmc_5min_all_435.pkl
+data/speed/cranberry_tmc_5min/df_downsampled_dens_tmc_5min_pv_435.pkl
+data/speed/cranberry_tmc_5min/df_downsampled_dens_tmc_5min_truck_424.pkl
+data/speed/cranberry_tmc_5min/df_downsampled_spd_tmc_5min_all_435.pkl
+data/speed/cranberry_tmc_5min/df_downsampled_spd_tmc_5min_pv_435.pkl
+data/speed/cranberry_tmc_5min/df_downsampled_spd_tmc_5min_truck_424.pkl
+data/speed/cranberry_tmc_5min/downsampled_cran_tmc_5min_all.csv
+data/speed/cranberry_tmc_5min/downsampled_cran_tmc_5min_pv.csv
+data/speed/cranberry_tmc_5min/downsampled_cran_tmc_5min_truck.csv
+data/speed/cranberry_tmc_5min/network_tmc.geojson
+data/speed/cranberry_tmc_5min/old/data_dictionary.txt
+data/speed/cranberry_tmc_5min/old/npmrds_cranberry_tmc_ids.txt
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2018_dont_average/.manually_select_cranberry_2018_dont_average.csv.icloud
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2018_dont_average/Contents.txt
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2018_dont_average/TMC_Identification.csv
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2018_dont_average_2/.manually_select_cranberry_2018_dont_average.csv.icloud
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2018_dont_average_2/Contents.txt
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2018_dont_average_2/TMC_Identification.csv
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2018_dont_average_3/.manually_select_cranberry_2018_dont_average.csv.icloud
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2018_dont_average_3/Contents.txt
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2018_dont_average_3/TMC_Identification.csv
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2019_dont_average/Contents.txt
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2019_dont_average/manually_select_cranberry_2019_dont_average.csv
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2019_dont_average/TMC_Identification.csv
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2019_dont_average_2/Contents.txt
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2019_dont_average_2/manually_select_cranberry_2019_dont_average.csv
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2019_dont_average_2/TMC_Identification.csv
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2019_dont_average_3/Contents.txt
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2019_dont_average_3/manually_select_cranberry_2019_dont_average.csv
+data/speed/cranberry_tmc_5min/old/manually_select_cranberry_2019_dont_average_3/TMC_Identification.csv
+data/speed/cranberry_tmc_5min/old/zips/.manually_select_cranberry_2018_dont_average_2.zip.icloud
+data/speed/cranberry_tmc_5min/old/zips/.manually_select_cranberry_2018_dont_average_3.zip.icloud
+data/speed/cranberry_tmc_5min/old/zips/.manually_select_cranberry_2018_dont_average.zip.icloud
+data/speed/cranberry_tmc_5min/old/zips/.manually_select_cranberry_2019_dont_average_2.zip.icloud
+data/speed/cranberry_tmc_5min/old/zips/.manually_select_cranberry_2019_dont_average_3.zip.icloud
+data/speed/cranberry_tmc_5min/old/zips/.manually_select_cranberry_2019_dont_average.zip.icloud
+data/speed/cranberry_xd_1min/cran_xd_1min.csv
+data/speed/cranberry_xd_1min/df_downsampled_dens_xd_1min_1104.pkl
+data/speed/cranberry_xd_1min/df_downsampled_spd_xd_1min_1104.pkl
+data/speed/cranberry_xd_1min/downsampled_cran_xd_1min.csv
+data/speed/cranberry_xd_1min/old/.downsampled_xd_data.csv.icloud
+data/speed/cranberry_xd_1min/old/data_dictionary.txt
+data/speed/cranberry_xd_1min/old/ritis_cranberry_xd_ids.txt
+data/speed/cranberry_xd_1min/old/manually_select_cranberry_class123_20181101_20190727_dont_average/.manually_select_cranberry_class123_20181101_20190727_dont_average.csv.icloud
+data/speed/cranberry_xd_1min/old/manually_select_cranberry_class123_20181101_20190727_dont_average/Contents.txt
+data/speed/cranberry_xd_1min/old/manually_select_cranberry_class123_20181101_20190727_dont_average/XD_Identification.csv

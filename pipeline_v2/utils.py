@@ -7,6 +7,52 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 ########################################
+#            Model Structure           #
+########################################
+class SaveOutput:
+    def __init__(self):
+        self.outputs = []
+
+    def __call__(self, module, module_in, module_out):
+        self.outputs.append(module_out[1])
+
+    def clear(self):
+        self.outputs = []
+
+def patch_attention(m):
+    """
+    Reference: https://gist.github.com/airalcorn2/50ec06517ce96ecc143503e21fa6cb91
+
+    Helper function to allow transformer to output attention matrix for viz.
+    Current PyTorch implementaiton of nn.Transformer doesn't output attention matrix, as it sets "need_weights" option of self/multihead attention modules = False
+    See for more details: https://pytorch.org/docs/stable/_modules/torch/nn/modules/transformer.html#TransformerDecoder.forward
+
+    Example of calling patch_attention:
+        save_output = SaveOutput()
+        for module in transformer.modules():
+            if isinstance(module, nn.MultiheadAttention):
+                utils.patch_attention(module)
+                module.register_forward_hook(save_output)
+        with torch.no_grad():
+            pred = transformer(x, y)
+        
+        # num of multihead attn layers * batch_size
+        # to get the attn weight matrices between in_seq and out_seq
+        # index the multihead attn layer(s) and then index the batch
+        # You can set "average_attn_weights" = True if needed
+        print(save_output) 
+    """
+    forward_orig = m.forward
+
+    def wrap(*args, **kwargs):
+        kwargs['need_weights'] = True
+        kwargs['average_attn_weights'] = False
+
+        return forward_orig(*args, **kwargs)
+
+    m.forward = wrap
+
+########################################
 #               FILE I/O               #
 ########################################
 def save_checkpoint(epoch, model, args, best=False):
