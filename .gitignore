@@ -410,3 +410,5 @@ data/speed/cranberry_xd_1min/old/manually_select_cranberry_class123_20181101_201
 data/speed/cranberry_xd_1min/old/manually_select_cranberry_class123_20181101_20190727_dont_average/Contents.txt
 data/speed/cranberry_xd_1min/old/manually_select_cranberry_class123_20181101_20190727_dont_average/XD_Identification.csv
 model_v2/__pycache__/utils.cpython-310.pyc
+data_processing/Cranberry/__pycache__/utils.cpython-310.pyc
+.gitignore
