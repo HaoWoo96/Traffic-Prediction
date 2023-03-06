@@ -27,19 +27,24 @@ class EncoderRNN(nn.Module):
         # start from args.dim_in (1470) -> 1024 -> 512 -> args.hidden_dim (256)
 
         # I decide not to use batchnorm here since the input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
-        self.input_processing = nn.Sequential(
-                nn.Linear(args.dim_in, 4*args.dim_hidden),
-                # nn.BatchNorm1d(num_features=4*args.dim_hidden, device=args.device),
-                nn.ReLU(),
-                nn.Dropout(args.dropout_prob),
-                nn.Linear(4*args.dim_hidden, 2*args.dim_hidden),
-                # nn.BatchNorm1d(num_features=2*args.dim_hidden, device=args.device),
-                nn.ReLU(),
-                nn.Dropout(args.dropout_prob),
-                nn.Linear(2*args.dim_hidden, args.dim_hidden),
-                nn.Dropout(args.dropout_prob),
-                )
-        self.gru = nn.GRU(input_size=4*args.dim_hidden, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
+        # self.input_processing = nn.Sequential(
+        #         nn.Linear(args.dim_in, 4*args.dim_hidden),
+        #         # nn.BatchNorm1d(num_features=4*args.dim_hidden, device=args.device),
+        #         nn.ReLU(),
+        #         # nn.Dropout(args.dropout_prob),
+        #         nn.Linear(4*args.dim_hidden, 2*args.dim_hidden),
+        #         # nn.BatchNorm1d(num_features=2*args.dim_hidden, device=args.device),
+        #         nn.ReLU(),
+        #         # nn.Dropout(args.dropout_prob),
+        #         nn.Linear(2*args.dim_hidden, args.dim_hidden),
+        #         # nn.Dropout(args.dropout_prob),
+        #         )
+        self.linear = nn.Linear(args.dim_in, args.dim_hidden)
+        self.b_norm = nn.BatchNorm1d(num_features=args.dim_hidden, device=args.device)
+        self.activation = nn.ReLU()
+        self.dropout = nn.Dropout(args.dropout_prob)
+
+        self.gru = nn.GRU(input_size=args.dim_hidden, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
         # self.gru = nn.GRU(input_size=args.dim_in, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
 
     def forward(self, x, hidden):
@@ -56,7 +61,8 @@ class EncoderRNN(nn.Module):
         # embedded_input = torch.cat((input[:self.incident_start], embedded_incident_feat, input[self.incident_end:]), dim=-1)  # (batch_size, seq_len_in, in_feat_dim)
         # output, hidden = self.gru(embedded_input, hidden)
 
-        processed_input = self.input_processing(x)
+        # processed_input = self.input_processing(x)
+        processed_input = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(x), 1, 2)), 1, 2)))
         output, hidden = self.gru(processed_input, hidden)
         # output, hidden = self.gru(x, hidden)
 
@@ -89,20 +95,16 @@ class DecoderRNN(nn.Module):
 
         # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207
 
-        # I decide not to use batchnorm here since the input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
+        # For self.out, adding normalization modules such as batch normalization and dropout won't help but undermine model performance 
+        # Also, our input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
         self.out = nn.Sequential(
-                nn.Linear(args.dim_hidden, args.dim_hidden),
-                # nn.BatchNorm1d(num_features=args.dim_hidden, device=args.device),
-                nn.ReLU(),
-                nn.Dropout(args.dropout_prob),
-                nn.Linear(args.dim_hidden, args.dim_out),
-                # nn.BatchNorm1d(num_features=args.dim_out, device=args.device),
-                nn.ReLU(),
-                nn.Dropout(args.dropout_prob),
-                nn.Linear(args.dim_out, args.dim_out),
-                nn.Dropout(args.dropout_prob)
-                )
-
+            nn.Linear(args.dim_hidden, args.dim_hidden),
+            nn.ReLU(),
+            nn.Linear(args.dim_hidden, args.dim_out),
+            nn.ReLU(),
+            nn.Linear(args.dim_out, args.dim_out)
+            )
+        
     def forward(self, target, hidden):
         '''
         INPUTs
@@ -127,7 +129,7 @@ class DecoderRNN(nn.Module):
             x = target[:, 0, :].unsqueeze(1)
             for i in range(self.args.seq_len_out-1):
                 temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
-                temp_out = self.out(temp_out) 
+                temp_out = self.out(temp_out)
                 output.append(temp_out)
 
                 x = temp_out.detach()  # use prediction as next input, detach from history
@@ -158,21 +160,17 @@ class AttnDecoderRNN(nn.Module):
         #         nn.Linear(args.dim_hidden, dim_out),
         #         nn.Linear(dim_out, dim_out)
         #         )
-        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207
 
-        # I decide not to use batchnorm here since the input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
+        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207
+        # For self.out, adding normalization modules such as batch normalization and dropout won't help but undermine model performance 
+        # Also, our input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
         self.out = nn.Sequential(
-                nn.Linear(args.dim_hidden, args.dim_hidden),
-                # nn.BatchNorm1d(num_features=args.dim_hidden, device=args.device),
-                nn.ReLU(),
-                nn.Dropout(args.dropout_prob),
-                nn.Linear(args.dim_hidden, args.dim_out),
-                # nn.BatchNorm1d(num_features=args.dim_out, device=args.device),
-                nn.ReLU(),
-                nn.Dropout(args.dropout_prob),
-                nn.Linear(args.dim_out, args.dim_out),
-                nn.Dropout(args.dropout_prob)
-                )
+            nn.Linear(args.dim_hidden, args.dim_hidden),
+            nn.ReLU(),
+            nn.Linear(args.dim_hidden, args.dim_out),
+            nn.ReLU(),
+            nn.Linear(args.dim_out, args.dim_out)
+            )
     
 
     def forward(self, target, hidden, enc_output):
@@ -210,6 +208,7 @@ class AttnDecoderRNN(nn.Module):
 
                 temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
                 output.append(self.out(temp_out))
+                
         else:
             # Without teacher forcing: use its own predictions as the next input
             x = target[:, 0, :].unsqueeze(1)  # (batch_size, 1, dim_out)
@@ -227,8 +226,7 @@ class AttnDecoderRNN(nn.Module):
                 x = F.relu(x)
 
                 temp_out, hidden = self.gru(x, hidden)  # seq len is 1 for each gru operation
-
-                temp_out = self.out(temp_out) 
+                temp_out = self.out(temp_out)
                 output.append(temp_out)
 
                 x = temp_out.detach()  # use prediction as next input, detach from history
