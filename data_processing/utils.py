@@ -69,6 +69,8 @@ def downsample_large_dataset(type, input_file_path, output_file_path, set_segmen
 
                 chunklist.append(chunk)
 
+    print("Finished reading chunks!")
+
     # concat dataframe chunks and merge into one final dataframe 
     output = pd.concat(chunklist) 
     output = output.reset_index(drop=True)  # reset index
@@ -114,7 +116,7 @@ def pivot_df(seg_type, value_type, granularity, df, busi_date, num_slot, freq, s
     ]
 
     pickle.dump(output, open(output_file_path, "wb"))
-    return output
+    # return output
 
 
 
@@ -157,6 +159,12 @@ def angle_neighbor(curr_geo, prev_geo):
 
 # Helper function to check direction matchness
 def check_direction(d_1, d_2):
+    '''
+    INPUTs
+        d_1: TMC direction
+        d_2: XD direction
+    '''
+    
     wrong_directions = {'SOUTHBOUND':'NORTHBOUND', 
     'NORTHBOUND':'SOUTHBOUND', 
     'WESTBOUND':'EASTBOUND', 
@@ -169,8 +177,19 @@ def check_direction(d_1, d_2):
     'N': "S", 
     'W':'E', 
     'E':'W'}
-    # In tmc_cranberry_v2.geojson and tmc_cranberry_v2_with_direction.geojson, there are entries in "direction" column that are not "clean" (contains road name, not denote xxxbound, etc)
+    # In tmc_cranberry_v2.geojson, tmc_cranberry_v2_with_direction.geojson, tmc_shape_hwd.geojson and xd_shape_hwd_for_sjoin.geojson  there are entries in "direction" column that are not "clean" (contains road name, not denote xxxbound, etc)
     # in thoes cases, we just flag them as True for now and let it go through manual check on direction/angle in the subsequent checking procedure.
+
+    # Naively handle cases like d_1 = "COLUMBIA GATEWAY DR SOUTHBOUND"
+    for d in ["NORTHBOUND", "SOUTHBOUND", "WESTBOUND", "EASTBOUND"]:
+        cnt = 0
+        cand = ""
+        if d in d_1:
+            cand = d
+            cnt += 1
+    if cnt == 1:
+        d_1 = cand
+
     if not (d_1 in wrong_directions and d_2 in wrong_directions):
         return True
     if not isinstance(d_1, str) or not isinstance(d_2, str) or d_1[0] in wrong_directions[d_2[0]]:
