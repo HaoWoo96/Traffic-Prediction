@@ -319,7 +319,7 @@ def create_parser():
     # parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='Decay Rate of Learning rate (default 0.1)')
     # parser.add_argument('--lr_decay_freq', type=int, default=50, help='Decay Frequency (in terms of epochs) of Learning rate  (default 50)')
 
-    parser.add_argument('--exp_name', type=str, default="exp", help='Name of the experiment')
+    parser.add_argument('--exp_name', type=str,help='Name of the experiment')
 
     # 4. Directories and Checkpoint/Sample Iterations
     parser.add_argument('--data_dir', type=str, default='../data')
