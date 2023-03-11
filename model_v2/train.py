@@ -33,7 +33,9 @@ def train(train_dataloader, model, opt, epoch, args, writer):
 
         # Compute Loss
         if args.task == "LR":
-            criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
+            # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
+            # don't forget to set pos_weight
+            criterion = torch.nn.BCEWithLogitsLoss(pos_weight=args.LR_pos_weight)  
             loss = criterion(pred, target[:, 1:, :, 3])
         else: 
             criterion = torch.nn.MSELoss()
@@ -84,7 +86,9 @@ def test(test_dataloader, model, epoch, args, writer):
 
             # Compute Loss
             if args.task == "LR":
-                criterion = torch.nn.BCEWithLogitsLoss()  # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
+                # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
+                # don't forget to set pos_weight
+                criterion = torch.nn.BCEWithLogitsLoss(pos_weight=args.pos_weight) 
                 loss = criterion(pred, target[:, 1:, :, 3])
             else: 
                 criterion = torch.nn.MSELoss()
@@ -266,6 +270,7 @@ def create_parser():
     parser.add_argument('--freq_out', type=int, default=5, help='frequency of output data')
 
     parser.add_argument('--inc_threshold', type=float, default=0.5, help='threshold of a prediction be considered as an incident')
+    parser.add_argument('--LR_pos_weight', type=float, default=0.1840, help='ratio of positive samples in incident ground truth')
     parser.add_argument('--use_expectation', action="store_true", help='use expectation of speed prediction as model output')
 
     # Assuming perfect incident status prediction at stage 1 of the 2-stage model (Traffic)
@@ -348,7 +353,7 @@ if __name__ == '__main__':
     args.log_dir += f"/{args.task}"
     args.checkpoint_dir += f"/{args.task}" 
 
-    args.exp_name = args.model_type
+    args.exp_name += args.model_type
     if args.task == "no_fact":
         args.exp_name += "_no_fact"
     args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_{str(args.use_expectation)[0]}" 

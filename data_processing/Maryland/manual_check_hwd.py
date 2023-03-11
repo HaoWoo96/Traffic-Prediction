@@ -22,52 +22,55 @@ gdf_hwd_xd.miles_xd = gdf_hwd_xd.miles_xd.astype(float)
 '''
 For manual check of spatially joined TMC & XD segments
 '''
-raw_xd_to_tmc = pd.read_csv("./hwd_raw_xd_to_tmc.csv")
-raw_xd_to_tmc.id_xd = raw_xd_to_tmc.id_xd.astype(str)
-raw_xd_to_tmc = raw_xd_to_tmc.sort_values(by="angle", ascending=False)
+# raw_xd_to_tmc = pd.read_csv("./hwd_raw_xd_to_tmc.csv")
+# raw_xd_to_tmc.id_xd = raw_xd_to_tmc.id_xd.astype(str)
+# raw_xd_to_tmc = raw_xd_to_tmc.sort_values(by="angle", ascending=False)
 
-# Visualization for Checking
-for i in range(563, raw_xd_to_tmc.shape[0]):
-    fig, ax = plt.subplots(1,figsize=(7.5,7.5), dpi=100)
-    curr_tmc = raw_xd_to_tmc.iloc[i].id_tmc
-    curr_xd = raw_xd_to_tmc.iloc[i].id_xd
-    # gdf_tmc_cranberry.plot(ax=ax, color="grey", alpha=0.1)
+# # Visualization for Checking
+# for i in range(563, raw_xd_to_tmc.shape[0]):
+#     fig, ax = plt.subplots(1,figsize=(7.5,7.5), dpi=100)
+#     curr_tmc = raw_xd_to_tmc.iloc[i].id_tmc
+#     curr_xd = raw_xd_to_tmc.iloc[i].id_xd
+#     # gdf_tmc_cranberry.plot(ax=ax, color="grey", alpha=0.1)
 
-    plt.title(f"index = {i+2} \n \
-            curr_tmc (blue): {curr_tmc}    direction: {raw_xd_to_tmc.iloc[i].direction_tmc}     ratio_tmc: {raw_xd_to_tmc.iloc[i].overlap_vs_tmc} \n \
-            curr_xd (red): {curr_xd}      direction: {raw_xd_to_tmc.iloc[i].direction_xd}       ratio_xd: {raw_xd_to_tmc.iloc[i].overlap_vs_xd}", \
-                fontsize=7)
-    gdf_hwd_tmc[gdf_hwd_tmc.id_tmc == curr_tmc].plot(ax=ax, color="Blue", alpha=0.3)
-    gdf_hwd_xd[gdf_hwd_xd.id_xd_str == curr_xd].plot(ax=ax, color="Red", alpha=0.5)
-    plt.show()
+#     plt.title(f"index = {i+2} \n \
+#             curr_tmc (blue): {curr_tmc}    direction: {raw_xd_to_tmc.iloc[i].direction_tmc}     ratio_tmc: {raw_xd_to_tmc.iloc[i].overlap_vs_tmc} \n \
+#             curr_xd (red): {curr_xd}      direction: {raw_xd_to_tmc.iloc[i].direction_xd}       ratio_xd: {raw_xd_to_tmc.iloc[i].overlap_vs_xd}", \
+#                 fontsize=7)
+#     gdf_hwd_tmc[gdf_hwd_tmc.id_tmc == curr_tmc].plot(ax=ax, color="Blue", alpha=0.3)
+#     gdf_hwd_xd[gdf_hwd_xd.id_xd_str == curr_xd].plot(ax=ax, color="Red", alpha=0.5)
+#     plt.show()
 
 
 '''
 For manual check of connected TMC neighbors
 '''
-# df_raw_prev_tmc = pd.read_csv("./raw_prev_tmc_v2.csv")
-# df_raw_prev_tmc = df_raw_prev_tmc.sort_values(by="angle", ascending=False)
+df_raw_prev_tmc = pd.read_csv("./hwd_raw_prev_tmc.csv")
+df_raw_prev_tmc = df_raw_prev_tmc.sort_values(by="angle", ascending=False)
 
-# # Visualization for Checking
-# for i in range(df_raw_prev_tmc.shape[0]):
-#     check_curr_tmc = df_raw_prev_tmc.iloc[i].tmc_x
-#     check_prev_tmc = df_raw_prev_tmc.iloc[i].tmc_y
-#     # print(check_curr_tmc, df_raw_prev_tmc.iloc[i].direction_x,check_prev_tmc, df_raw_prev_tmc.iloc[i].direction_y, df_raw_prev_tmc.iloc[i].angle)
-#     fig, ax = plt.subplots(1,figsize=(7.5,6), dpi=100)
-#     # plt.title(f"index = {i+2} \n \
-#     #         angle = {df_raw_prev_tmc.iloc[i].angle}\n \
-#     #         (RED) curr_tmc: {check_curr_tmc}    direction: {df_raw_prev_tmc.iloc[i].direction_x}    name: {df_raw_prev_tmc.iloc[i].roadname_x}      start: {df_raw_prev_tmc.iloc[i].start_latitude_x}, {df_raw_prev_tmc.iloc[i].start_longitude_x}     end: {df_raw_prev_tmc.iloc[i].end_latitude_x}, {df_raw_prev_tmc.iloc[i].end_longitude_x} \n \
-#     #         (BLUE) prev_tmc: {check_prev_tmc}      direction: {df_raw_prev_tmc.iloc[i].direction_y}     name: {df_raw_prev_tmc.iloc[i].roadname_x}      start: {df_raw_prev_tmc.iloc[i].start_latitude_y}, {df_raw_prev_tmc.iloc[i].start_longitude_y}      end: {df_raw_prev_tmc.iloc[i].end_latitude_y}, {df_raw_prev_tmc.iloc[i].end_longitude_y} ", \
-#     #             fontsize=7)
-#     plt.title(f"index = {i+2} \n \
-#         angle = {df_raw_prev_tmc.iloc[i].angle}\n \
-#         (RED) curr_tmc: {check_curr_tmc}    direction: {df_raw_prev_tmc.iloc[i].direction_x}    name: {df_raw_prev_tmc.iloc[i].roadname_x} \n \
-#         (BLUE) prev_tmc: {check_prev_tmc}      direction: {df_raw_prev_tmc.iloc[i].direction_y}     name: {df_raw_prev_tmc.iloc[i].roadname_y}", \
-#             fontsize=7)
-#     # gdf_tmc_cranberry.plot(ax=ax, color="grey", alpha=0.3)
-#     gdf_tmc_cranberry[gdf_tmc_cranberry.tmc == check_curr_tmc].plot(ax=ax, color="red", alpha=0.5)
-#     gdf_tmc_cranberry[gdf_tmc_cranberry.tmc == check_prev_tmc].plot(ax=ax, color="blue", alpha=0.3)
-#     plt.show()
+# Visualization for Checking
+# for i in range(16, df_raw_prev_tmc.shape[0]):
+for i in [0]:
+    check_curr_tmc = df_raw_prev_tmc.iloc[i].id_tmc_x
+    check_prev_tmc = df_raw_prev_tmc.iloc[i].id_tmc_y
+    # print(check_curr_tmc, df_raw_prev_tmc.iloc[i].direction_x,check_prev_tmc, df_raw_prev_tmc.iloc[i].direction_y, df_raw_prev_tmc.iloc[i].angle)
+    fig, ax = plt.subplots(2, figsize=(8, 9))
+    # plt.title(f"index = {i+2} \n \
+    #         angle = {df_raw_prev_tmc.iloc[i].angle}\n \
+    #         (RED) curr_tmc: {check_curr_tmc}    direction: {df_raw_prev_tmc.iloc[i].direction_x}    name: {df_raw_prev_tmc.iloc[i].roadname_x}      start: {df_raw_prev_tmc.iloc[i].start_latitude_x}, {df_raw_prev_tmc.iloc[i].start_longitude_x}     end: {df_raw_prev_tmc.iloc[i].end_latitude_x}, {df_raw_prev_tmc.iloc[i].end_longitude_x} \n \
+    #         (BLUE) prev_tmc: {check_prev_tmc}      direction: {df_raw_prev_tmc.iloc[i].direction_y}     name: {df_raw_prev_tmc.iloc[i].roadname_x}      start: {df_raw_prev_tmc.iloc[i].start_latitude_y}, {df_raw_prev_tmc.iloc[i].start_longitude_y}      end: {df_raw_prev_tmc.iloc[i].end_latitude_y}, {df_raw_prev_tmc.iloc[i].end_longitude_y} ", \
+    #             fontsize=7)
+    fig.suptitle(f"index = {i+2} \n \
+        angle = {df_raw_prev_tmc.iloc[i].angle}\n \
+        (RED) curr_tmc: {check_curr_tmc}    direction: {df_raw_prev_tmc.iloc[i].direction_x}    name: {df_raw_prev_tmc.iloc[i].roadname_x} \n \
+        (BLUE) prev_tmc: {check_prev_tmc}      direction: {df_raw_prev_tmc.iloc[i].direction_y}     name: {df_raw_prev_tmc.iloc[i].roadname_y}", \
+            fontsize=7)
+    gdf_hwd_tmc.plot(ax=ax[0], color="grey", alpha=0.1)
+    gdf_hwd_tmc[gdf_hwd_tmc.id_tmc == check_curr_tmc].plot(ax=ax[0], color="red", alpha=0.5)
+    gdf_hwd_tmc[gdf_hwd_tmc.id_tmc == check_prev_tmc].plot(ax=ax[0], color="blue", alpha=0.3)
+    gdf_hwd_tmc[gdf_hwd_tmc.id_tmc == check_curr_tmc].plot(ax=ax[1], color="red", alpha=0.5)
+    gdf_hwd_tmc[gdf_hwd_tmc.id_tmc == check_prev_tmc].plot(ax=ax[1], color="blue", alpha=0.3)
+    plt.show()
 
 
 '''
