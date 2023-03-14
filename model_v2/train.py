@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from models import *
 from data_loader import get_data_loader
-from utils import save_checkpoint, create_dir, log_train_meta
+from utils import seed_torch, save_checkpoint, create_dir, log_train_meta
 
 ########################################
 #       TRAINING/TESTING FUNCTIONS     #
@@ -278,7 +278,7 @@ def create_parser():
 
     # 2. Data Hyper-parameters
     parser.add_argument('--data_train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
-    parser.add_argument('--seed', type=int, default=42, help='Seed for random splitting')
+    parser.add_argument('--seed', type=int, default=912, help='Seed for random splitting')
     # parser.add_argument('--gt_type', type=str, default="tmc", help='ground truth speed type, "tmc" or "xd"')
 
     parser.add_argument('--dim_in', type=int, default=1470, help='dimension of input')
@@ -347,7 +347,7 @@ if __name__ == '__main__':
     args.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
     # For reproducibility
-    torch.manual_seed(args.seed)
+    seed_torch(args.seed)
 
     # Task specific directories
     args.log_dir += f"/{args.task}"
