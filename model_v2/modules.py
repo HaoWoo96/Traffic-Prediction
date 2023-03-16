@@ -9,8 +9,6 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 ##########################
 #     1. RNN Modules     #
 ##########################
-# ----------------------------------------- TODO -----------------------------------------
-# TODO - need to rewrite the MLP part (add dropout and activation)
 class EncoderRNN(nn.Module):
     def __init__(self, args):
         super(EncoderRNN, self).__init__()
@@ -265,6 +263,8 @@ class EncoderTrans(nn.Module):
         # Generates an upper-triangular matrix of -inf, with zeros on diag.
         # The masked positions (upper triangular area, excluding diag) are filled with float('-inf'). 
         # Unmasked positions (lower triangular area, including diag) are filled with float(0.0).
+
+        # ? does encoder need mask ?
         self.mask = torch.triu(torch.ones(args.seq_len_in, args.seq_len_in) * float('-inf'), diagonal=1)  # size (seq_len_in, seq_len_in)
 
     def forward(self, x):
@@ -291,6 +291,8 @@ class DecoderTrans(nn.Module):
         self.trans_encoder = TransformerEncoder(encoder_layers=self.trans_encoder_layers, nlayers=args.num_trans_layers)
 
         # Generates an upper-triangular matrix of -inf, with zeros on diag.
+        # The masked positions (upper triangular area, excluding diag) are filled with float('-inf'). 
+        # Unmasked positions (lower triangular area, including diag) are filled with float(0.0).
         self.mask = torch.triu(torch.ones(args.seq_len_in, args.seq_len_in) * float('-inf'), diagonal=1)  # size (seq_len_in, seq_len_in)
 
     def forward(self, x):
