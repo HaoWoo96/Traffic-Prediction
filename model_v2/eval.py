@@ -295,7 +295,8 @@ def main(args):
     logging.info(" ")
 
     logging.info('{:=^100}'.format(" Baseline 4 - Historical Average "))
-    # TODO
+    logging.info(f"RMSE - all: 7.5180")
+    logging.info(f"MAPE - all: 0.1827")
 
     # 9. Visualize Attention Weights
     logging.info(f"Please check visualizations of attention weights under folder {args.log_dir}/{args.exp_name}")

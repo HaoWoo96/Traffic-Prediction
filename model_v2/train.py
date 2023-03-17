@@ -359,7 +359,7 @@ if __name__ == '__main__':
     args.exp_name = args.model_type
     args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_{str(args.use_expectation)[0]}" 
     if not args.use_expectation:
-        args.exp_name += str(args.inc_threshold)
+        args.exp_name += f"{str(args.inc_threshold)}"
 
     if args.load_checkpoint_epoch > 0:
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"

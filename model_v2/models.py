@@ -79,30 +79,29 @@ class Seq2SeqFact(nn.Module):
         xxx_dec_hidden: (num_layer, batch_size, dim_hidden)
         xxx_attn_weights: (batch_size, seq_len_out, seq_len_in)
         '''
-        # print(target[..., 1].size(), enc_hidden.size(), enc_out.size())
-        LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 3], enc_hidden, enc_out)
-        rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], enc_hidden, enc_out)
-        nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], enc_hidden, enc_out)
-
-        # generate final speed prediction
-        if self.args.use_gt_inc:
-            speed_pred = rec_out * (target[..., 3] < 0.5) + nonrec_out * (target[..., 3] >= 0.5)
-        else:
-            if self.args.use_expectation:
-                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
-            else:
-                speed_pred = rec_out * (LR_out <= self.args.inc_threshold) + nonrec_out * (LR_out > self.args.inc_threshold)
-
-
         if self.args.task == "LR":
-            return LR_out, LR_hidden, LR_attn_weights
+            return self.LR_decoder(target[..., 3], enc_hidden, enc_out)
         elif self.args.task == "rec":
-            return rec_out, rec_hidden, rec_attn_weights
+            return self.rec_decoder(target[..., 0], enc_hidden, enc_out)
         elif self.args.task == "nonrec":
-            return nonrec_out, nonrec_hidden, nonrec_attn_weights
+            return self.nonrec_decoder(target[..., 0], enc_hidden, enc_out)
         else:
+            LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 3], enc_hidden, enc_out)
+            rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], enc_hidden, enc_out)
+            nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], enc_hidden, enc_out)
+
+            # generate final speed prediction
+            if self.args.use_gt_inc:
+                speed_pred = rec_out * (target[..., 3] < 0.5) + nonrec_out * (target[..., 3] >= 0.5)
+            else:
+                if self.args.use_expectation:
+                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
+                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                else:
+                    speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
+            
             return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
+
 
 
 ##########################
