@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
-from modules import EncoderRNN, EncoderTrans, PosEmbed, DecoderRNN, DecoderMLP, AttnDecoderRNN, STBlock
+from modules import EncoderRNN, EncoderTrans, PosEmbed, DecoderRNN, DecoderTrans, AttnDecoderRNN, STBlock
 
 ##########################
 #     1. Seq-to-seq      #
@@ -114,19 +114,20 @@ class TransNoFact(nn.Module):
     def __init__(self, args):
         super(TransNoFact, self).__init__()
         self.encoder = EncoderTrans(args)
-        self.decoder = DecoderMLP(args, "R")
+        self.decoder = DecoderTrans(args)
         self.args = args
     
     def forward(self, x, target):
         '''
         INPUTs
             x: input, (batch_size, seq_len_in, dim_in)
+            target: target, (batch_size, seq_len_out, dim_out)
 
         OUTPUTs
             dec_out: (batch_size, seq_len_out, dim_out or 3*dim_out)  
         '''
-        enc_out = self.encoder(x)  # (batch_size, seq_len_in, dim_in)
-        dec_out = self.decoder(enc_out)
+        enc_out = self.encoder(x)  # (batch_size, seq_len_in, dim_hidden)
+        dec_out = self.decoder(target, enc_out)
 
         return dec_out
 

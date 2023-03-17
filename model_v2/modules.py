@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from torch.nn import TransformerEncoder, TransformerEncoderLayer, TransformerDecoder, TransformerDecoderLayer
 
 ##########################
 #     1. RNN Modules     #
@@ -47,7 +47,7 @@ class EncoderRNN(nn.Module):
         # output, hidden = self.gru(embedded_input, hidden)
 
         # processed_input = self.input_processing(x)
-        processed_input = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(x), 1, 2)), 1, 2)))
+        processed_input = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(x), 1, 2)), 1, 2))) # (batch_size, seq_len_in, dim_hidden)
         output, hidden = self.gru(processed_input, hidden)
         # output, hidden = self.gru(x, hidden)
 
@@ -230,23 +230,23 @@ class PosEmbed(nn.Module):
         self.dropout = nn.Dropout(p=args.dropout)
         
         position = torch.arange(args.seq_len_in).unsqueeze(0) # (1, seq_len_in)
-        div_term = torch.exp(torch.arange(0, args.dim_in, 2)*(-math.log(10000.0) / args.dim_in))
-        self.pe = torch.zeros(1, args.seq_len_in, args.dim_in)
-        self.pe[0, :, 0::2] = torch.sin(position * div_term)
-        self.pe[0, :, 1::2] = torch.cos(position * div_term)
+        div_term = torch.exp(torch.arange(0, args.dim_in, 2)*(-math.log(10000.0) / args.dim_hidden))
+        self.pos_embed = torch.zeros(1, args.seq_len_in, args.dim_hidden)
+        self.pos_embed[0, :, 0::2] = torch.sin(position * div_term)
+        self.pos_embed[0, :, 1::2] = torch.cos(position * div_term)
 
-        self.register_buffer('pe', self.pe)
+        self.register_buffer('pos_embed', self.pos_embed)
         self.args = args
 
 
     def forward(self, x):
         '''
         INPUTs
-            x: input, (batch_size, seq_len_in, dim_in)
+            x: PROCESSED input, (batch_size, seq_len_in, dim_hidden)
         OUTPUTs
-            output: (batch_size, seq_len_in, dim_in)
+            output: (batch_size, seq_len_in, dim_hidden)
         '''
-        x = x + self.pe
+        x = x + self.pos_embed
         return self.dropout(x)
 
 
@@ -256,8 +256,17 @@ class EncoderTrans(nn.Module):
         super(EncoderTrans, self).__init__()
         self.args = args
 
+        # input processing
+        self.linear = nn.Linear(args.dim_in, args.dim_hidden)
+        self.b_norm = nn.BatchNorm1d(num_features=args.dim_hidden, device=args.device)
+        self.activation = nn.ReLU()
+        self.dropout = nn.Dropout(args.dropout_prob)
+
+        # positional encoding
         self.pos_encoder = PosEmbed(args)
-        self.trans_encoder_layers = TransformerEncoderLayer(d_model=args.dim_in, nhead=args.num_head, dropout=args.dropout, batch_first=True, norm_first=True)  # layer normalization should be first, otherwise the training will be very difficult
+
+        # transformer encoder
+        self.trans_encoder_layers = TransformerEncoderLayer(d_model=args.dim_hidden, nhead=args.num_head, dropout=args.dropout_prob, batch_first=True, norm_first=True)  # layer normalization should be first, otherwise the training will be very difficult
         self.trans_encoder = TransformerEncoder(encoder_layers=self.trans_encoder_layers, nlayers=args.num_trans_layers)
 
         # Generates an upper-triangular matrix of -inf, with zeros on diag.
@@ -265,7 +274,7 @@ class EncoderTrans(nn.Module):
         # Unmasked positions (lower triangular area, including diag) are filled with float(0.0).
 
         # ? does encoder need mask ?
-        self.mask = torch.triu(torch.ones(args.seq_len_in, args.seq_len_in) * float('-inf'), diagonal=1)  # size (seq_len_in, seq_len_in)
+        # self.mask = torch.triu(torch.ones(args.seq_len_in, args.seq_len_in) * float('-inf'), diagonal=1)  # size (seq_len_in, seq_len_in)
 
     def forward(self, x):
         '''
@@ -274,9 +283,14 @@ class EncoderTrans(nn.Module):
         OUTPUTs
             output: (batch_size, seq_len_in, dim_in)
         '''
-        new_x = x * math.sqrt(self.args.dim_in)
-        new_x = self.pos_encoder(new_x)
-        output = self.transformer_encoder(new_x, self.mask)
+        processed_input = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(x), 1, 2)), 1, 2)))  # (batch_size, seq_len_in, dim_hidden)
+
+        # Avoid original feature embedding overshadowed by positional embedding
+        # More info: # https://datascience.stackexchange.com/questions/87906/transformer-model-why-are-word-embeddings-scaled-before-adding-positional-encod/87909#87909
+        processed_input = processed_input * math.sqrt(self.args.dim_hidden) 
+        pos_input = self.pos_encoder(processed_input)
+        # output = self.transformer_encoder(pos_input, self.mask)
+        output = self.transformer_encoder(pos_input)
         return output
 
 # ----------------------------------------- TODO -----------------------------------------
@@ -286,26 +300,52 @@ class DecoderTrans(nn.Module):
         super(EncoderTrans, self).__init__()
         self.args = args
 
+        # input processing
+        self.linear = nn.Linear(args.dim_in, args.dim_hidden)
+        self.b_norm = nn.BatchNorm1d(num_features=args.dim_hidden, device=args.device)
+        self.activation = nn.ReLU()
+        self.dropout = nn.Dropout(args.dropout_prob)
+
+        # positional embedding
         self.pos_encoder = PosEmbed(args)
-        self.trans_encoder_layers = TransformerEncoderLayer(d_model=args.dim_in, nhead=args.num_head, dropout=args.dropout, batch_first=True, norm_first=True)  # layer normalization should be first, otherwise the training will be very difficult
-        self.trans_encoder = TransformerEncoder(encoder_layers=self.trans_encoder_layers, nlayers=args.num_trans_layers)
+
+        # transformer decoder
+        self.trans_decoder_layers = TransformerDecoder(d_model=args.dim_hidden, nhead=args.num_head, dropout=args.dropout_prob, batch_first=True, norm_first=True)  # layer normalization should be first, otherwise the training will be very difficult
+        self.trans_decoder = TransformerDecoder(decoder_layers=self.trans_decoder_layers, nlayers=args.num_trans_layers)
 
         # Generates an upper-triangular matrix of -inf, with zeros on diag.
         # The masked positions (upper triangular area, excluding diag) are filled with float('-inf'). 
         # Unmasked positions (lower triangular area, including diag) are filled with float(0.0).
         self.mask = torch.triu(torch.ones(args.seq_len_in, args.seq_len_in) * float('-inf'), diagonal=1)  # size (seq_len_in, seq_len_in)
 
-    def forward(self, x):
+        # output processing
+        self.out = nn.Sequential(
+            nn.Linear(args.dim_hidden, args.dim_hidden),
+            nn.ReLU(),
+            nn.Linear(args.dim_hidden, args.dim_out),
+            nn.ReLU(),
+            nn.Linear(args.dim_out, args.dim_out)
+            )
+
+    def forward(self, target, memory):
         '''
         INPUTs
-            x: input, (batch_size, seq_len_in, dim_in)
+            target: target, (batch_size, seq_len_out, dim_out)
+            memory: latent representation after transformer encoder, (batch_size, seq_len_in, dim_hidden)
+            
         OUTPUTs
-            output: (batch_size, seq_len_in, dim_in)
+            output: (batch_size, seq_len_out, dim_out)
         '''
-        new_x = x * math.sqrt(self.args.dim_in)
-        new_x = self.pos_encoder(new_x)
-        output = self.transformer_encoder(new_x, self.mask)
-        return output
+        processed_tgt = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(target), 1, 2)), 1, 2)))  # (batch_size, seq_len_out, dim_hidden)
+
+        # Avoid original feature embedding overshadowed by positional embedding
+        # More info: # https://datascience.stackexchange.com/questions/87906/transformer-model-why-are-word-embeddings-scaled-before-adding-positional-encod/87909#87909
+        processed_tgt = processed_tgt * math.sqrt(self.args.dim_hidden) 
+        pos_tgt = self.pos_encoder(processed_tgt)
+
+        output = self.transformer_decoder(tgt=pos_tgt, memory=memory, tgt_mask=self.mask)
+        processed_out = self.out(output)
+        return processed_out
 
 # MLP Decoder (used for Transformer Model)
 class DecoderMLP(nn.Module):

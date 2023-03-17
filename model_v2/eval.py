@@ -59,7 +59,7 @@ def eval_error(infer_dataloader, model, factorization, args):
             batch_size = x.size(0)
             instance_cnt += batch_size
 
-            inc_target = target[:, 1:, :, 1]
+            inc_target = target[:, 1:, :, -1]
             spd_target = target[:, 1:, :, 0]
 
             rec_mask = inc_target < 0.5   # (batch_size, seq_len_out, dim_out)
@@ -167,7 +167,7 @@ def eval_last_obs(infer_dataloader, args):
             instance_cnt += batch_size
 
             # get target
-            inc_target = target[:, 1:, :, 1]
+            inc_target = target[:, 1:, :, -1]
             spd_target = target[:, 1:, :, 0]
             # make Prediction
             spd_pred = target[:, 0, :, 0].unsqueeze(1).repeat(1,args.seq_len_out,1)
@@ -233,9 +233,9 @@ def main(args):
 
     # 5. Load Model Checkpoints
     # Base models (seq2seq models) are trained without args.use_expectation, although it doesn't make any difference whether args.use_expectation is true or not
-    # Therefore, pretrained base models are all marked with "best_exp_x_x_x_x_x_x_F.pt".
+    # Therefore, pretrained base models are all marked with "best_exp_x_x_x_x_x_x_F0.5.pt".
     # args.use_expectation does make a difference in 2-stage model (Traffic model)
-    base_model_path = "{}/no_fact/best_{}_no_fact_{}_F.pt".format(args.checkpoint_dir, args.model_type, "_".join(args.exp_name.split("_")[:-1]))
+    base_model_path = "{}/no_fact/best_{}_{}_F0.5.pt".format(args.checkpoint_dir, args.model_type, "_".join(args.exp_name.split("_")[:-1]))
     traffic_model_path = "{}/finetune/best_{}_{}.pt".format(args.checkpoint_dir, args.model_type, args.exp_name)
     with open(base_model_path, "rb") as f_base_model, open(traffic_model_path, "rb") as f_traffic_model:
         # load state dict
@@ -337,7 +337,11 @@ if __name__ == "__main__":
 
     # Task specific directories
     args.log_dir = "./results" 
+
+    args.exp_name = args.model_type
     args.exp_name = f"{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_{str(args.use_expectation)[0]}"
+    if not args.use_expectation:
+        args.exp_name += str(args.inc_threshold)
 
     # Change input dimension based on task type and whether to use new features or not
     if not args.use_dens:

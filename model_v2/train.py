@@ -259,11 +259,14 @@ def create_parser():
     # 1. Model hyper-parameters
     parser.add_argument('--model_type', type=str, help="Choose one from 'Seq2Seq', 'Trans', 'STGCN'")
 
-    parser.add_argument('--num_layer_GRU', type=int, default=2, help='Number of stacked GRUs in encoder and decoder')
-    parser.add_argument('--num_layer_Trans', type=int, default=2, help='Number of transformer encoder/decoder layers')
     parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension in encoder and decoder')
     parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='threshold of teacher forcing')
     parser.add_argument('--dropout_prob', type=float, default=0.1, help='dropout probability')
+
+    parser.add_argument('--num_layer_GRU', type=int, default=2, help='Number of stacked GRUs in encoder and decoder')
+
+    parser.add_argument('--num_head', type=int, default=8, help='Number of heads in a transformer encoder/decoder layer')
+    parser.add_argument('--num_layer_Trans', type=int, default=6, help='Number of transformer encoder/decoder layers')
 
     parser.add_argument('--seq_len_in', type=int, default=7, help='sequence length of input')
     parser.add_argument('--seq_len_out', type=int, default=6, help='sequence length of output')
