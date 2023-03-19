@@ -228,7 +228,7 @@ def main(args):
     base_model = Seq2SeqNoFact(args).to(args.device)
     traffic_model = Seq2SeqFact(args).to(args.device)
     traffic_model_use_inc_gt = Seq2SeqFact(args).to(args.device)
-    traffic_model_use_inc_gt.args.use_inc_gt = 1
+    traffic_model_use_inc_gt.args.use_gt_inc = 1
     
 
     # 5. Load Model Checkpoints

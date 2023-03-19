@@ -92,7 +92,7 @@ class Seq2SeqFact(nn.Module):
 
             # generate final speed prediction
             if self.args.use_gt_inc:
-                speed_pred = rec_out * (target[..., 3] < 0.5) + nonrec_out * (target[..., 3] >= 0.5)
+                speed_pred = rec_out * (target[:, 1:, 3] < 0.5) + nonrec_out * (target[:, 1:, 3] >= 0.5)
             else:
                 if self.args.use_expectation:
                     rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
@@ -107,7 +107,6 @@ class Seq2SeqFact(nn.Module):
 ##########################
 #     2. Transformer     #
 ##########################
-# ----------------------------------------- TODO -----------------------------------------
 # 2.1 Transformer Model without Factorization
 class TransNoFact(nn.Module):
     def __init__(self, args):
@@ -130,7 +129,7 @@ class TransNoFact(nn.Module):
 
         return dec_out
 
-# ----------------------------------------- TODO -----------------------------------------
+
 # 2.2 Transformer Model with Factorization
 class TransFact(nn.Module):
     def __init__(self, args):
@@ -138,15 +137,15 @@ class TransFact(nn.Module):
         self.args = args
         self.encoder = EncoderTrans(args=args)
 
-        self.LR_decoder = DecoderMLP(args=args, dec_type="LR")  # decoder for incident prediction (logistic regression)
-        self.rec_decoder = DecoderMLP(args=args, dec_type="Non_LR")  # decoder for speed prediction in recurrent scenario
-        self.nonrec_decoder = DecoderMLP(args=args, dec_type="Non_LR")  # decoder for speed prediction in non-recurrent scenario
+        self.LR_decoder = DecoderTrans(args=args)  # decoder for incident prediction (logistic regression)
+        self.rec_decoder = DecoderTrans(args=args)  # decoder for speed prediction in recurrent scenario
+        self.nonrec_decoder = DecoderTrans(args=args)  # decoder for speed prediction in non-recurrent scenario
     
     def forward(self, x, target):
         '''
         INPUTs
             x: input, (batch_size, seq_len_in, dim_in)
-            target: (batch_size, seq_len_out + 1, dim_out, 2), the last dimension refers to 1. speed and 2. incident status 
+            target: (batch_size, seq_len_out + 1, dim_out, 4), the last dimension refers to 1~3: speed (all, truck, pv) and 4: incident status 
 
         OUTPUTs
             LR_out: incident status prediction, (batch_size, seq_len_out, dim_out)
@@ -160,32 +159,28 @@ class TransFact(nn.Module):
         '''
         xxx_dec_out: (batch_size, seq_len_out, dim_out)  
         '''
-        LR_out = self.LR_decoder(enc_out)
-        rec_out = self.rec_decoder(enc_out)
-        nonrec_out = self.nonrec_decoder(enc_out)
-
-        # generate final speed prediction
-        if self.args.use_gt_inc:  
-            # use ground truth incident prediction as 0-1 mask
-            speed_pred = rec_out * (target[..., 3] <= 0.5) + nonrec_out * (target[..., 3] > 0.5)
-        else:
-            if self.args.use_expectation:
-                # compute speed prediction as expectation
-                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                speed_pred = rec_out * rec_weight + nonrec_out * LR_out
-            else:
-                # compute speed prediction based on predicted 0-1 mask
-                speed_pred = rec_out * (LR_out <= self.args.inc_threshold) + nonrec_out * (LR_out > self.args.inc_threshold)
-
-
         if self.args.task == "LR":
-            return LR_out
+            return self.LR_decoder(target[..., 3], enc_out)
         elif self.args.task == "rec":
-            return rec_out
+            return self.rec_decoder(target[..., 0], enc_out)
         elif self.args.task == "nonrec":
-            return nonrec_out
+            return self.nonrec_decoder(target[..., 0], enc_out)
         else:
-            return speed_pred, LR_out
+            LR_out = self.LR_decoder(target[..., 3], enc_out)
+            rec_out = self.rec_decoder(target[..., 0], enc_out)
+            nonrec_out = self.nonrec_decoder(target[..., 0], enc_out)
+
+            # generate final speed prediction
+            if self.args.use_gt_inc:
+                speed_pred = rec_out * (target[:, 1:, 3] < 0.5) + nonrec_out * (target[:, 1:, 3] >= 0.5)
+            else:
+                if self.args.use_expectation:
+                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
+                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                else:
+                    speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
+            
+            return speed_pred
 
 
 
