@@ -126,7 +126,7 @@ class TransNoFact(nn.Module):
             dec_out: (batch_size, seq_len_out, dim_out or 3*dim_out)  
         '''
         enc_out = self.encoder(x)  # (batch_size, seq_len_in, dim_hidden)
-        dec_out = self.decoder(target, enc_out)
+        dec_out = self.decoder(target[..., 0], enc_out)
 
         return dec_out
 

@@ -27,9 +27,12 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, dim_out, 2 or 4) for TrafficModel, (batch_size, out_seq_len + 1, dim_out) for TrafficSeq2Seq
 
         # Forward Pass
-        # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
-        # the third element returned are attention weights, which won't be used here but will be visualized during inference.
-        pred, _, _ = model(x, target)
+        if args.model_type == "Seq2Seq":
+            # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
+            # the third element returned are attention weights, which won't be used here but will be visualized during inference.
+            pred, _, _ = model(x, target)
+        else:
+            pred = model(x, target)
 
         # Compute Loss
         if args.task == "LR":
@@ -80,9 +83,12 @@ def test(test_dataloader, model, epoch, args, writer):
 
         with torch.no_grad():
             # Forward Pass
-            # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
-            # the third element returned are attention weights, which won't be used here but will be visualized during inference.
-            pred, _, _ = model(x, target)
+            if args.model_type == "Seq2Seq":
+                # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
+                # the third element returned are attention weights, which won't be used here but will be visualized during inference.
+                pred, _, _ = model(x, target)
+            else:
+                pred = model(x, target)
 
             # Compute Loss
             if args.task == "LR":
@@ -266,7 +272,7 @@ def create_parser():
     parser.add_argument('--num_layer_GRU', type=int, default=2, help='Number of stacked GRUs in encoder and decoder')
 
     parser.add_argument('--num_head', type=int, default=8, help='Number of heads in a transformer encoder/decoder layer')
-    parser.add_argument('--num_layer_Trans', type=int, default=6, help='Number of transformer encoder/decoder layers')
+    parser.add_argument('--num_layer_Trans', type=int, default=2, help='Number of transformer encoder/decoder layers')
 
     parser.add_argument('--seq_len_in', type=int, default=7, help='sequence length of input')
     parser.add_argument('--seq_len_out', type=int, default=6, help='sequence length of output')
