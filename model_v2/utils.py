@@ -2,11 +2,13 @@ import os
 import torch
 import logging
 import sys
+import pickle
 import random
 import numpy as np
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 
 ########################################
 #            Model Training            #
@@ -22,10 +24,37 @@ def seed_torch(seed=912):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
+# for reproducibility in dataloader
+# reference: https://pytorch.org/docs/stable/notes/randomness.html
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+# compute training time
+def compute_train_time(start_time, end_time):
+    '''
+    INPUTs
+        start_time, end_time: datetime.datetime objects
+    
+    OUTPUT
+        training_time: dict object with keys "hours", "minutes" and "seconds"
+    '''
+    training_time = {}
+    training_time["hours"], remain = divmod((end_time - start_time).seconds, 3600)
+    training_time["minutes"], training_time["seconds"] = divmod(remain, 60)
+    return training_time
+
 
 ########################################
 #            Model Structure           #
 ########################################
+def create_mask(num_row, num_col, device):
+    """
+    Helper function to create mask for transformer decoder
+    """
+    return torch.triu(torch.ones(num_row, num_col) * float('-inf'), diagonal=1).to(device) 
+
 class SaveOutput:
     def __init__(self):
         self.outputs = []
@@ -72,13 +101,19 @@ def patch_attention(m):
 ########################################
 #               FILE I/O               #
 ########################################
-def save_checkpoint(epoch, model, args, best=False):
+def save_checkpoint(epoch, model, args, train_epoch_loss, val_epoch_loss, test_epoch_loss, best=False):
     if best:
-        path = os.path.join(args.checkpoint_dir, 'best_{}.pt'.format(args.exp_name))
+        checkpoint_path = os.path.join(args.checkpoint_dir, 'best_{}.pt'.format(args.exp_name))
+        loss_path = os.path.join(args.checkpoint_dir, 'best_{}_loss.pkl'.format(args.exp_name))
     else:
-        path = os.path.join(args.checkpoint_dir, 'epoch_{}_{}.pt'.format(epoch, args.exp_name))
-    torch.save(model.state_dict(), path)
+        checkpoint_path = os.path.join(args.checkpoint_dir, 'epoch_{}_{}.pt'.format(epoch, args.exp_name))
+        loss_path = os.path.join(args.checkpoint_dir, 'epoch_{}_{}_loss.pkl'.format(epoch, args.exp_name))
+    torch.save(model.state_dict(), checkpoint_path)
 
+    losses = {"train_epoch_loss": train_epoch_loss, 
+              "val_epoch_loss": val_epoch_loss,
+              "test_epoch_loss": test_epoch_loss}
+    pickle.dump(losses, open(loss_path, "wb"))
 
 def create_dir(directory):
     """
@@ -152,8 +187,6 @@ def log_train_meta(args):
     #logging.info(f"Ground Truth Speed Data Source: {args.gt_type}")
     logging.info(f"Use Density: {args.use_dens}; Use All Speed: {args.use_spd_all}; Use Truck Speed: {args.use_spd_truck}; Use Personal Vehicle Speed: {args.use_spd_pv}; ")
     logging.info(f"Input Sequence Length: {args.seq_len_in}; Output Sequence Lenth: {args.seq_len_out}; Output Frequency: {args.freq_out} \n")
-
-    logging.info('{:*^100}'.format(" LOADING PROGRESS "))
 
 
 def log_eval_meta(args):

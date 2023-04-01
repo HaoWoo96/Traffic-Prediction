@@ -2,7 +2,9 @@ import numpy as np
 import torch
 import os
 
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
+
+from utils import seed_worker
 
 class TrafficData(Dataset):
     """
@@ -55,16 +57,31 @@ def get_data_loader(args):
     """
     whole_dataset = TrafficData(args=args)
 
-    train_size = int(np.ceil(args.data_train_ratio * len(whole_dataset)))
-    test_size = len(whole_dataset) - train_size
+    # train_size = int(np.ceil(args.data_train_ratio * len(whole_dataset)))
+    # test_size = len(whole_dataset) - train_size
+
+    # make sure the splitting preserves the integrity of 180 slots in a day
+    train_size = int(np.ceil(args.data_train_ratio * (len(whole_dataset)/180))) * 180   # 14760
+    val_size = int(np.ceil(args.data_val_ratio * (len(whole_dataset)/180))) * 180   # 4320
+    test_size = len(whole_dataset) - train_size - val_size   # 1980
 
     # split train and test dataset
-    train_dataset, test_dataset = torch.utils.data.random_split(dataset = whole_dataset, lengths = [train_size, test_size], generator=torch.Generator().manual_seed(args.seed))
+    # Option 1 - random split
+    g = torch.Generator()
+    g.manual_seed(args.seed)
+    train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset = whole_dataset, lengths = [train_size, val_size, test_size], generator=g)
 
-    train_dloader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-    test_dloader = DataLoader(dataset=test_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
+    # Option 2 - split by temporal order <= Actually, as demonstrated in the experiments, the distributions of trainding, validation and testing datasets seem different.
+    # Note that we cannot directly slice whole_dataset by "whole_dataset[start:end]". We need to use torch.util.data.Subset instead.
+    # train_dataset = Subset(whole_dataset, torch.arange(train_size))
+    # val_dataset = Subset(whole_dataset, torch.arange(train_size,train_size+val_size))
+    # test_dataset = Subset(whole_dataset, torch.arange(train_size+val_size, train_size+val_size+test_size))
+
+    train_dloader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, worker_init_fn=seed_worker)
+    val_dloader = DataLoader(dataset=val_dataset, batch_size=args.batch_size, num_workers=args.num_workers, worker_init_fn=seed_worker)
+    test_dloader = DataLoader(dataset=test_dataset, batch_size=args.batch_size, num_workers=args.num_workers, worker_init_fn=seed_worker)
     
-    return train_dloader, test_dloader
+    return train_dloader, val_dloader, test_dloader
 
 
 def get_inference_data_loader(args):

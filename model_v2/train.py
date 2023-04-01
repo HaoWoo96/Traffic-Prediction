@@ -3,13 +3,16 @@ import argparse
 import torch
 import torch.optim as optim
 import logging
+import os
+import pickle
 import sys
 
 from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime as dt
 
 from models import *
 from data_loader import get_data_loader
-from utils import seed_torch, save_checkpoint, create_dir, log_train_meta
+from utils import seed_torch, compute_train_time, save_checkpoint, create_dir, log_train_meta
 
 ########################################
 #       TRAINING/TESTING FUNCTIONS     #
@@ -20,6 +23,7 @@ def train(train_dataloader, model, opt, epoch, args, writer):
     model.train()
     step = epoch*len(train_dataloader)
     epoch_loss = 0
+    num_sample = 0
 
     for i, batch in enumerate(train_dataloader):
         x, target = batch
@@ -30,16 +34,18 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         if args.model_type == "Seq2Seq":
             # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
             # the third element returned are attention weights, which won't be used here but will be visualized during inference.
-            pred, _, _ = model(x, target)
+            pred, _, _ = model(x, target, mode="train")
+        elif args.model_type == "Trans":
+            pred = model(x, target, mode="train")
         else:
-            pred = model(x, target)
+            pred = model(x, target, mode="train")
 
         # Compute Loss
         if args.task == "LR":
             # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
             # don't forget to set pos_weight
             criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
-            loss = criterion(pred, target[:, 1:, :, 3])
+            loss_per_sample = criterion(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
         else: 
             criterion = torch.nn.MSELoss()
             # register hook to only consider certain segments for the computation of loss
@@ -48,13 +54,14 @@ def train(train_dataloader, model, opt, epoch, args, writer):
                     h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] < 0.5).float())
                 else:
                     h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] >= 0.5).float())
-            loss = criterion(pred, target[:, 1:, :, 0])
+            loss_per_sample = criterion(pred, target[:, 1:, :, 0])  # avg loss per time step per sample
 
-        epoch_loss += loss
+        epoch_loss += loss_per_sample*x.size(0)
+        num_sample += x.size(0)
 
         # Backward and Optimize
         opt.zero_grad()
-        loss.backward()
+        loss_per_sample.backward()
         opt.step()
 
         # remove hook if needed
@@ -62,21 +69,23 @@ def train(train_dataloader, model, opt, epoch, args, writer):
             h.remove()
 
         # Logging
-        writer.add_scalar("train_loss", loss.item(), step+i)
+        writer.add_scalar("train_loss", loss_per_sample.item(), step+i)
     
     # Decay Learning Rate
     # scheduler.step()
     
-    return epoch_loss/len(train_dataloader)
+    # return epoch_loss/len(train_dataloader)
+    return epoch_loss/num_sample  # avg loss per time step per sample
 
 
-def test(test_dataloader, model, epoch, args, writer):
+def eval(eval_dataloader, model, epoch, args, writer, eval_for_validation):
 
     model.eval() # deactivate dropout, and adjust for batch normalization
-    step = epoch*len(test_dataloader)
+    step = epoch*len(eval_dataloader)
     epoch_loss = 0
+    num_sample = 0
 
-    for i, batch in enumerate(test_dataloader):
+    for i, batch in enumerate(eval_dataloader):
         x, target = batch
         x = x.to(args.device)  # (batch_size, in_seq_len, dim_in)
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, dim_out, 2) for TrafficModel, (batch_size, out_seq_len + 1, dim_out) for TrafficSeq2Seq
@@ -86,7 +95,9 @@ def test(test_dataloader, model, epoch, args, writer):
             if args.model_type == "Seq2Seq":
                 # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
                 # the third element returned are attention weights, which won't be used here but will be visualized during inference.
-                pred, _, _ = model(x, target)
+                pred, _, _ = model(x, target, mode="eval")
+            elif args.model_type == "Trans":
+                pred = model(x, target, mode="eval")
             else:
                 pred = model(x, target)
 
@@ -95,17 +106,22 @@ def test(test_dataloader, model, epoch, args, writer):
                 # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
                 # don't forget to set pos_weight
                 criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
-                loss = criterion(pred, target[:, 1:, :, 3])
+                loss_per_sample = criterion(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
             else: 
                 criterion = torch.nn.MSELoss()
-                loss = criterion(pred, target[:, 1:, :, 0])
+                loss_per_sample = criterion(pred, target[:, 1:, :, 0])
 
-            epoch_loss += loss
+            epoch_loss += loss_per_sample*x.size(0)
+            num_sample += x.size(0)
 
         # Logging
-        writer.add_scalar("test_loss", loss.item(), step+i)
+        if eval_for_validation:
+            writer.add_scalar("val_loss", loss_per_sample.item(), step+i)
+        else:
+            writer.add_scalar("test_loss", loss_per_sample.item(), step+i)
     
-    return epoch_loss/len(test_dataloader)
+    # return epoch_loss/len(eval_dataloader)
+    return epoch_loss/num_sample  # avg loss per time step per sample
 
 
 ########################################
@@ -122,27 +138,37 @@ def main(args):
     # 2. Set up Logger for Tensorboard and Logging
     writer = SummaryWriter('{}/{}'.format(args.log_dir,args.exp_name))
     if args.load_checkpoint_epoch > 0:
-        logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training_resume.log", filemode="w", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
+        logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training.log", filemode="a", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
     else:
         logging.basicConfig(filename=f"{args.log_dir}/{args.exp_name}/training.log", filemode="w", format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG) 
-    # log meta info of training experiment
-    log_train_meta(args)
+        # log meta info of training experiment
+        log_train_meta(args)
 
     # 3. Initialize Model
-    if args.task != "no_fact":
-        if args.model_type == "Seq2Seq":
-            model = Seq2SeqFact(args).to(args.device)
-        elif args.model_type == "Trans":
-            model = TransFact(args).to(args.device)
-        else:
-            model = STGCNNoFact(args).to(args.device)
-    else:
+    if args.task == "no_fact":
         if args.model_type == "Seq2Seq":
             model = Seq2SeqNoFact(args).to(args.device)
         elif args.model_type == "Trans":
             model = TransNoFact(args).to(args.device)
         else:
+            model = STGCNNoFact(args).to(args.device)
+    elif args.task == "naive":
+        if args.model_type == "Seq2Seq":
+            model = Seq2SeqFactNaive(args).to(args.device)
+        elif args.model_type == "Trans":
+            model = TransFactNaive(args).to(args.device)
+        else:
+            model = STGCNFactNaive(args).to(args.device)
+    else:
+        if args.model_type == "Seq2Seq":
+            model = Seq2SeqFact(args).to(args.device)
+        elif args.model_type == "Trans":
+            model = TransFact(args).to(args.device)
+        else:
             model = STGCNFact(args).to(args.device)
+
+
+    logging.info('{:*^100}'.format(" LOADING PROGRESS "))
 
     # 4. Load Checkpoint 
     if args.load_checkpoint:
@@ -219,7 +245,7 @@ def main(args):
     # scheduler = optim.lr_scheduler.StepLR(opt, step_size=args.lr_decay_freq, gamma=args.lr_decay_rate)
 
     # 7. Load Data for Training & Testing
-    train_dataloader, test_dataloader = get_data_loader(args=args)
+    train_dataloader, val_dataloader, test_dataloader = get_data_loader(args=args)
     logging.info(f"successfully loaded data \n")
 
     # 8. Train, Test & Save Checkpoints
@@ -228,32 +254,42 @@ def main(args):
         logging.info('{:=^100}'.format(" Training Resumes from Epoch {} ".format(args.load_checkpoint_epoch)))
     else:
         logging.info('{:=^100}'.format(" Training Starts "))
-    logging.info("please check tensorboard for plots of experiment {}/{}".format(args.log_dir, args.exp_name))
-    logging.info("please check logging messages at {}/{}/training.log".format(args.log_dir, args.exp_name))
+        logging.info("please check tensorboard for plots of experiment {}/{}".format(args.log_dir, args.exp_name))
+        logging.info("please check logging messages at {}/{}/training.log".format(args.log_dir, args.exp_name))
+    logging.info(f"Average losses are calculated per time step per sample.")
     
-    best_loss = float("inf")
-    best_epoch = -1
+    start_time = dt.now()
+    best_val_loss = float("inf")
+    best_test_loss = float("inf")
+    if args.load_checkpoint_epoch > 0:
+        loss_path = "{}/epoch_{}_{}_loss.pkl".format(args.checkpoint_dir, args.load_checkpoint_epoch, args.exp_name)
+        best_val_loss = pickle.load(open(loss_path, "rb"))["val_epoch_loss"]
+    best_epoch = -1  # evaluated based on validation loss
 
-    for epoch in range(max(0, args.load_checkpoint_epoch), args.num_epochs):
+    for epoch in range(max(0, args.load_checkpoint_epoch+1), args.num_epochs):
         # Train
         train_epoch_loss = train(train_dataloader, model, opt, epoch, args, writer)
-        test_epoch_loss = test(test_dataloader, model, epoch, args, writer)
+        val_epoch_loss = eval(val_dataloader, model, epoch, args, writer, True)
+        test_epoch_loss = eval(test_dataloader, model, epoch, args, writer, False)
 
-        logging.info("epoch: {}   train loss (per batch): {:.4f}   test loss (per batch): {:.4f}".format(epoch, train_epoch_loss, test_epoch_loss))
+        logging.info("epoch: {}   train loss: {:.4f}   val loss: {:.4f}   test loss: {:.4f}".format(epoch, train_epoch_loss, val_epoch_loss, test_epoch_loss))
         
         # Save Model Checkpoint Regularly
         if epoch % args.checkpoint_every == 0:
             logging.info("checkpoint saved at epoch {}".format(epoch))
-            save_checkpoint(epoch=epoch, model=model, args=args, best=False)
+            save_checkpoint(epoch=epoch, model=model, args=args, train_epoch_loss=train_epoch_loss, val_epoch_loss=val_epoch_loss, test_epoch_loss=test_epoch_loss, best=False)
 
         # Save Best Model Checkpoint
-        if (test_epoch_loss <= best_loss):
-            best_loss = test_epoch_loss
+        if (val_epoch_loss <= best_val_loss):
+            best_val_loss = val_epoch_loss
+            best_test_loss = test_epoch_loss
             best_epoch = epoch
             logging.info("best model saved at epoch {}".format(epoch))
-            save_checkpoint(epoch=epoch, model=model, args=args, best=True)
+            save_checkpoint(epoch=epoch, model=model, args=args, train_epoch_loss=train_epoch_loss, val_epoch_loss=val_epoch_loss, test_epoch_loss=test_epoch_loss, best=True)
 
-    logging.info('{:=^100}'.format(" Training Completes ({} epochs trained, best epoch at {} with test loss per batch = {:.4f}) ".format(args.num_epochs, best_epoch, best_loss)))
+    end_time = dt.now()
+    training_time = compute_train_time(start_time, end_time)
+    logging.info('{:=^100}'.format(" Training completes after {} hr {} min {} sec ({} epochs trained, best epoch at {} with val loss = {:.4f} and test loss = {:.4f}) ".format(training_time["hours"], training_time["minutes"], training_time["seconds"], args.num_epochs, best_epoch, best_val_loss, best_test_loss)))
 
 
 def create_parser():
@@ -286,7 +322,8 @@ def create_parser():
     parser.add_argument('--use_gt_inc', type=int, default=0, help='use ground truth of indicent status as input to second stage')
 
     # 2. Data Hyper-parameters
-    parser.add_argument('--data_train_ratio', type=float, default=0.8, help='Ratio of training data versus whole data')
+    parser.add_argument('--data_train_ratio', type=float, default=0.7, help='Ratio of training data versus whole data')
+    parser.add_argument('--data_val_ratio', type=float, default=0.2, help='Ratio of validation data versus whole data')
     parser.add_argument('--seed', type=int, default=912, help='Seed for random splitting')
     # parser.add_argument('--gt_type', type=str, default="tmc", help='ground truth speed type, "tmc" or "xd"')
 
@@ -323,10 +360,11 @@ def create_parser():
             - train a model without Factorization
             - input: no new features
             - output: in 5-min frequency
+        6. "naive": naive combination of three encoder-decoder modules (LR, rec, nonrec)
     '''
-    parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'no_fact'")
+    parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'no_fact', 'naive'")
 
-    parser.add_argument('--num_epochs', type=int, default=401, help='Number of epochs for training')
+    parser.add_argument('--num_epochs', type=int, default=601, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of threads to use for the DataLoader.')
     parser.add_argument('--lr', type=float, default=0.0003, help='Learning rate (default 0.0003)')

@@ -6,6 +6,8 @@ import torch.nn.functional as F
 
 from torch.nn import TransformerEncoder, TransformerEncoderLayer, TransformerDecoder, TransformerDecoderLayer
 
+from utils import *
+
 ##########################
 #     1. RNN Modules     #
 ##########################
@@ -158,12 +160,14 @@ class AttnDecoderRNN(nn.Module):
             )
     
 
-    def forward(self, target, hidden, enc_output):
+    def forward(self, target, hidden, enc_output, mode):
         '''
         INPUTs
             target: (batch_size, seq_len_out, dim_out), the entries in the last dimension is either speed data or incident status
             hidden: the hidden tensor computed from encoder, (dec_num_layer, batch_size, dim_hidden) 
             enc_output: (batch_size, seq_len_in, dim_hidden)
+            mode: string of value "train" or "eval", denoting the mode to control decoder
+
 
         OUTPUTs
             output: (batch_size, seq_len_out, dim_out) 
@@ -175,7 +179,7 @@ class AttnDecoderRNN(nn.Module):
         output = []
         attn_weights = []
 
-        if use_teacher_forcing:
+        if use_teacher_forcing and mode == "train":
             # Teacher forcing: Feed the target as the next input
             for i in range(self.args.seq_len_out):
                 x = target[:, i, :].unsqueeze(1)  # Teacher forcing, (batch_size, 1, dim_out)
@@ -327,7 +331,8 @@ class DecoderTrans(nn.Module):
         # Generates an upper-triangular matrix of -inf, with zeros on diag.
         # The masked positions (upper triangular area, excluding diag) are filled with float('-inf'). 
         # Unmasked positions (lower triangular area, including diag) are filled with float(0.0).
-        self.mask = torch.triu(torch.ones(args.seq_len_out, args.seq_len_out) * float('-inf'), diagonal=1).to(args.device)  # size (seq_len_in, seq_len_in)
+        self.mask = create_mask(num_row=args.seq_len_out, num_col=args.seq_len_out, device=args.device)  # size (seq_len_out, seq_len_out)
+        #self.mask = torch.triu(torch.ones(args.seq_len_out, args.seq_len_out) * float('-inf'), diagonal=1).to(args.device)  
 
         # output processing
         self.out = nn.Sequential(
@@ -338,24 +343,50 @@ class DecoderTrans(nn.Module):
             nn.Linear(args.dim_out, args.dim_out)
             )
 
-    def forward(self, target, memory):
+    def forward(self, target, memory, mode):
         '''
         INPUTs
             target: target, (batch_size, seq_len_out+1, dim_out)
             memory: latent representation after transformer encoder, (batch_size, seq_len_in, dim_hidden)
+            mode: string of value "train" or "eval", denoting the mode to control decoder
             
         OUTPUTs
             output: (batch_size, seq_len_out, dim_out)
         '''
-        processed_tgt = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(target[:, :self.args.seq_len_out, :]), 1, 2)), 1, 2)))  # (batch_size, seq_len_out, dim_hidden)
+        use_teacher_forcing = True if random.random() < self.args.teacher_forcing_ratio else False
 
-        # Avoid original feature embedding overshadowed by positional embedding
-        # More info: # https://datascience.stackexchange.com/questions/87906/transformer-model-why-are-word-embeddings-scaled-before-adding-positional-encod/87909#87909
-        processed_tgt = processed_tgt * math.sqrt(self.args.dim_hidden) 
-        pos_tgt = self.pos_encoder_for_output(processed_tgt)
+        if use_teacher_forcing and mode == "train":
+            # Take advantage of ground truth data only if we apply teacher forcing AND we are in training mode.
+            processed_tgt = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(target[:, :self.args.seq_len_out, :]), 1, 2)), 1, 2)))  # (batch_size, seq_len_out, dim_hidden)
 
-        output = self.trans_decoder(tgt=pos_tgt, memory=memory, tgt_mask=self.mask)
-        processed_out = self.out(output)
+            # Avoid original feature embedding overshadowed by positional embedding
+            # More info: # https://datascience.stackexchange.com/questions/87906/transformer-model-why-are-word-embeddings-scaled-before-adding-positional-encod/87909#87909
+            processed_tgt = processed_tgt * math.sqrt(self.args.dim_hidden) 
+            pos_tgt = self.pos_encoder_for_output(processed_tgt)
+
+            output = self.trans_decoder(tgt=pos_tgt, memory=memory, tgt_mask=self.mask)
+            processed_out = self.out(output)
+        
+        else:
+            prediction = target[:, 0, :].unsqueeze(1)  # (batch_size, 1, dim_out)
+
+            for i in range(self.args.seq_len_out):
+                processed_tgt = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(prediction), 1, 2)), 1, 2)))  # (batch_size, i+1, dim_hidden)
+                temp_pred = self.trans_decoder(tgt=processed_tgt, memory=memory, tgt_mask=create_mask(num_row=processed_tgt.size(1), num_col=processed_tgt.size(1), device=self.args.device))  # (batch_size, i+1, dim_hidden)
+                processed_pred = self.out(temp_pred)  # (batch_size, i+1, dim_out)
+                prediction = torch.concat((prediction, processed_pred[:, -1, :].unsqueeze(1)), 1)  # (batch_size, i+2, dim_out)
+            
+            # processed_out = prediction[:, 1:, :]
+            processed_tgt = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(prediction[:, :self.args.seq_len_out, :]), 1, 2)), 1, 2)))  # (batch_size, seq_len_out, dim_hidden)
+
+            # Avoid original feature embedding overshadowed by positional embedding
+            # More info: # https://datascience.stackexchange.com/questions/87906/transformer-model-why-are-word-embeddings-scaled-before-adding-positional-encod/87909#87909
+            processed_tgt = processed_tgt * math.sqrt(self.args.dim_hidden) 
+            pos_tgt = self.pos_encoder_for_output(processed_tgt)
+
+            output = self.trans_decoder(tgt=pos_tgt, memory=memory, tgt_mask=self.mask)
+            processed_out = self.out(output)
+
         return processed_out
 
 # MLP Decoder (used for Transformer Model)
