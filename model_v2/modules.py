@@ -331,6 +331,13 @@ class DecoderTrans(nn.Module):
         # Generates an upper-triangular matrix of -inf, with zeros on diag.
         # The masked positions (upper triangular area, excluding diag) are filled with float('-inf'). 
         # Unmasked positions (lower triangular area, including diag) are filled with float(0.0).
+        # tensor([[0., -inf, -inf, -inf, -inf, -inf],
+        # [0., 0., -inf, -inf, -inf, -inf],
+        # [0., 0., 0., -inf, -inf, -inf],
+        # [0., 0., 0., 0., -inf, -inf],
+        # [0., 0., 0., 0., 0., -inf],
+        # [0., 0., 0., 0., 0., 0.]])
+        
         self.mask = create_mask(num_row=args.seq_len_out, num_col=args.seq_len_out, device=args.device)  # size (seq_len_out, seq_len_out)
         #self.mask = torch.triu(torch.ones(args.seq_len_out, args.seq_len_out) * float('-inf'), diagonal=1).to(args.device)  
 
