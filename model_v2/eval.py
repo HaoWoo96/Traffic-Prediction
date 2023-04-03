@@ -59,7 +59,7 @@ def eval_error(infer_dataloader, model, factorization, args):
             batch_size = x.size(0)
             instance_cnt += batch_size
 
-            inc_target = target[:, 1:, :, -1]
+            inc_target = target[:, 1:, :, -1]  # Waze incident status
             spd_target = target[:, 1:, :, 0]
 
             rec_mask = inc_target < 0.5   # (batch_size, seq_len_out, dim_out)
@@ -167,7 +167,7 @@ def eval_last_obs(infer_dataloader, args):
             instance_cnt += batch_size
 
             # get target
-            inc_target = target[:, 1:, :, -1]
+            inc_target = target[:, 1:, :, -1] # Waze incident status
             spd_target = target[:, 1:, :, 0]
             # make Prediction
             spd_pred = target[:, 0, :, 0].unsqueeze(1).repeat(1,args.seq_len_out,1)

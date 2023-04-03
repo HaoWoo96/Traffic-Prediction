@@ -15,11 +15,14 @@ class TrafficData(Dataset):
         
         X_path = f"{self.args.data_dir}/np_in_5min.npy"  # sequence features of TMC segments in frequency of 5 min
         Y_path = f"{self.args.data_dir}/np_out_5min.npy"  # ground truth of TMC speed & incident data in frequency of 5 min
+        waze_inc_path = f"{self.args.data_dir}/df_waze_5min_207.npy"  # ground truth of Waze incident data in frequency of 5 min, used to evaluation ONLY
 
         self.all_X = torch.from_numpy(np.load(X_path)).float()  # (21060, feat_dim)
+        self.waze_inc = torch.from_numpy(np.load(waze_inc_path)).float()  # (21060, feat_dim)
 
-        # (21060, num_seg, 4) the last dimension refers to 1. speed of all vehicles, 2. speed of truck, 3. speed of personal vehicles, 4. incident status
-        self.Y = torch.from_numpy(np.load(Y_path)).float()  
+        # (21060, num_seg, 5) the last dimension refers to 1. speed of all vehicles, 2. speed of truck, 3. speed of personal vehicles, 4. incident status (for training), 5. Waze incident status (for evaluation)
+        self.Y = torch.from_numpy(np.load(Y_path)).float() 
+        self.Y = torch.concat([self.Y, self.waze_inc.unsqueeze(-1)], dim=-1)
 
         # change input based on whether to use new features or not
         new_feat_indices = []
