@@ -3,6 +3,7 @@ import pickle
 import networkx as nx
 import numpy as np
 import geopandas as gpd
+import shapely
 
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -91,7 +92,7 @@ def pivot_df(seg_type, value_type, granularity, df, busi_date, num_slot, freq, s
         if value_type == "speed":
             df_pivot = df.pivot(index = "measurement_tstamp", columns = "tmc_code", values = "speed") 
         else:
-            if granularity == 5:
+            if "data_density" in df.columns:
                 df_pivot = df.pivot(index = "measurement_tstamp", columns = "tmc_code", values = "data_density") 
             else:
                 df_pivot = df.pivot(index = "measurement_tstamp", columns = "tmc_code", values = "confidence_score") 
@@ -138,8 +139,15 @@ def angle_neighbor(curr_geo, prev_geo):
         I use the very first/last pieces of segments to more precisely compute the angle a car need to turn to travel between segments.
     '''
     # get coordinates
-    curr_coords = list(list(curr_geo.geoms)[0].coords)
-    prev_coords = list(list(prev_geo.geoms)[0].coords)
+    if isinstance(curr_geo, shapely.geometry.linestring.LineString):  # LineString
+        curr_coords = list(curr_geo.coords)
+    else:  # MultiLineString
+        curr_coords = list(list(curr_geo.geoms)[0].coords)
+    
+    if isinstance(prev_geo, shapely.geometry.linestring.LineString):  # LineString
+        prev_coords = list(prev_geo.coords)
+    else:  # MultiLineString
+        prev_coords = list(list(prev_geo.geoms)[0].coords)
 
     # get coordinates of desired points
     curr_start_long, curr_start_lat = curr_coords[0] # starting position of current TMC segment: first point
