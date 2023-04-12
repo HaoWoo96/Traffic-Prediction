@@ -21,7 +21,7 @@ class Seq2SeqNoFact(nn.Module):
         super(Seq2SeqNoFact, self).__init__()
         self.args = args
         self.encoder = EncoderRNN(args=args)
-        self.decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")
+        self.decoder = AttnDecoderRNN(args=args)
     
     def forward(self, x, target, mode):
         '''
@@ -53,9 +53,9 @@ class Seq2SeqFact(nn.Module):
         self.args = args
         self.encoder = EncoderRNN(args=args)
 
-        self.LR_decoder = AttnDecoderRNN(args=args, dec_type="LR")  # decoder for incident prediction (logistic regression)
-        self.rec_decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")  # decoder for speed prediction in recurrent scenario
-        self.nonrec_decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")  # decoder for speed prediction in non-recurrent scenario
+        self.LR_decoder = AttnDecoderRNN(args=args)  # decoder for incident prediction (logistic regression)
+        self.rec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in recurrent scenario
+        self.nonrec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in non-recurrent scenario
     
     def forward(self, x, target, mode):
         '''
@@ -94,7 +94,7 @@ class Seq2SeqFact(nn.Module):
 
             # generate final speed prediction
             if self.args.use_gt_inc:
-                speed_pred = rec_out * (target[:, 1:, 3] < 0.5) + nonrec_out * (target[:, 1:, 3] >= 0.5)
+                speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
             else:
                 if self.args.use_expectation:
                     rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
@@ -113,9 +113,9 @@ class Seq2SeqFactNaive(nn.Module):
         self.rec_encoder = EncoderRNN(args=args)
         self.nonrec_encoder = EncoderRNN(args=args)
 
-        self.LR_decoder = AttnDecoderRNN(args=args, dec_type="LR")  # decoder for incident prediction (logistic regression)
-        self.rec_decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")  # decoder for speed prediction in recurrent scenario
-        self.nonrec_decoder = AttnDecoderRNN(args=args, dec_type="Non_LR")  # decoder for speed prediction in non-recurrent scenario
+        self.LR_decoder = AttnDecoderRNN(args=args)  # decoder for incident prediction (logistic regression)
+        self.rec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in recurrent scenario
+        self.nonrec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in non-recurrent scenario
     
     def forward(self, x, target, mode):
         '''
@@ -151,7 +151,7 @@ class Seq2SeqFactNaive(nn.Module):
 
         # generate final speed prediction
         if self.args.use_gt_inc:
-            speed_pred = rec_out * (target[:, 1:, 3] < 0.5) + nonrec_out * (target[:, 1:, 3] >= 0.5)
+            speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
         else:
             if self.args.use_expectation:
                 rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
@@ -161,7 +161,59 @@ class Seq2SeqFactNaive(nn.Module):
         
         return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
 
+class Seq2SeqFactNaive_2enc(nn.Module):
+    def __init__(self, args):
+        super(Seq2SeqFactNaive_2enc, self).__init__()
+        self.args = args
+        self.LR_encoder = EncoderRNN(args=args)
+        self.Non_LR_encoder = EncoderRNN(args=args)
 
+        self.LR_decoder = AttnDecoderRNN(args=args)  # decoder for incident prediction (logistic regression)
+        self.rec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in recurrent scenario
+        self.nonrec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in non-recurrent scenario
+    
+    def forward(self, x, target, mode):
+        '''
+        INPUTs
+            x: input, (batch_size, seq_len_in, num_feat_dim + incident_feat_dim)
+            target: (batch_size, seq_len_out + 1, dim_out, 4), the last dimension refers to 1~3: speed (all, truck, pv) and 4: incident status 
+            mode: string of value "train" or "eval", denoting the mode to control decoder
+
+        OUTPUTs
+            LR_out: incident status prediction, (batch_size, seq_len_out, dim_out)
+            speed_pred: speed prediction, (batch_size, seq_len_out, dim_out or 3*dim_out)
+            xxx_attn_weights: (batch_size, seq_len_out, seq_len_in)
+        '''
+        batch_size = x.size(0)
+
+        # pass into encoder
+        LR_ini_hidden = self.LR_encoder.initHidden(batch_size=batch_size)
+        LR_enc_out, LR_enc_hidden = self.LR_encoder(x, LR_ini_hidden)
+        Non_LR_ini_hidden = self.Non_LR_encoder.initHidden(batch_size=batch_size)
+        Non_LR_enc_out, Non_LR_enc_hidden = self.Non_LR_encoder(x, Non_LR_ini_hidden)
+
+        # pass into decoder
+        '''
+        xxx_dec_out: (batch_size, seq_len_out, dim_out)  
+        xxx_dec_hidden: (num_layer, batch_size, dim_hidden)
+        xxx_attn_weights: (batch_size, seq_len_out, seq_len_in)
+        '''
+        LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 3], LR_enc_hidden, LR_enc_out, mode)
+        rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], Non_LR_enc_hidden, Non_LR_enc_out, mode)
+        nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], Non_LR_enc_hidden, Non_LR_enc_out, mode)
+
+        # generate final speed prediction
+        if self.args.use_gt_inc:
+            speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
+        else:
+            if self.args.use_expectation:
+                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
+                speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+            else:
+                speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
+        
+        return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
+    
 ##########################
 #     2. Transformer     #
 ##########################
@@ -186,7 +238,7 @@ class TransNoFact(nn.Module):
         enc_out = self.encoder(x)  # (batch_size, seq_len_in, dim_hidden)
         dec_out = self.decoder(target[..., 0], enc_out, mode)
 
-        return dec_out
+        return dec_out, 0, 0
 
 
 # 2.2 Transformer Model with Factorization
@@ -232,7 +284,7 @@ class TransFact(nn.Module):
 
             # generate final speed prediction
             if self.args.use_gt_inc:
-                speed_pred = rec_out * (target[:, 1:, 3] < 0.5) + nonrec_out * (target[:, 1:, 3] >= 0.5)
+                speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
             else:
                 if self.args.use_expectation:
                     rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
@@ -240,7 +292,7 @@ class TransFact(nn.Module):
                 else:
                     speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
             
-            return speed_pred
+            return speed_pred, LR_out, 0
 
 # 2.3 Transformer of Naive Combination
 class TransFactNaive(nn.Module):
@@ -282,7 +334,7 @@ class TransFactNaive(nn.Module):
 
         # generate final speed prediction
         if self.args.use_gt_inc:
-            speed_pred = rec_out * (target[:, 1:, 3] < 0.5) + nonrec_out * (target[:, 1:, 3] >= 0.5)
+            speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
         else:
             if self.args.use_expectation:
                 rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out

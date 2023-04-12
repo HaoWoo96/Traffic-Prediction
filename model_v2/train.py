@@ -159,6 +159,11 @@ def main(args):
             model = TransFactNaive(args).to(args.device)
         else:
             model = STGCNFactNaive(args).to(args.device)
+    elif args.task == "naive_2enc":
+        if args.model_type == "Seq2Seq":
+            model = Seq2SeqFactNaive_2enc(args).to(args.device)
+        else:
+            pass
     else:
         if args.model_type == "Seq2Seq":
             model = Seq2SeqFact(args).to(args.device)
@@ -167,25 +172,30 @@ def main(args):
         else:
             model = STGCNFact(args).to(args.device)
 
+    # 4. Set up Optimizer and LR Scheduler
+    opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
+    # scheduler = optim.lr_scheduler.StepLR(opt, step_size=args.lr_decay_freq, gamma=args.lr_decay_rate)
+
 
     logging.info('{:*^100}'.format(" LOADING PROGRESS "))
 
-    # 4. Load Checkpoint 
+    # 5. Load Checkpoint 
     if args.load_checkpoint:
-        model_path = "{}/{}.pt".format(args.checkpoint_dir, args.load_checkpoint)
-        with open(model_path, 'rb') as f:
+        checkpoint_path = "{}/{}.pt".format(args.checkpoint_dir, args.load_checkpoint)
+        with open(checkpoint_path, 'rb') as f:
             state_dict = torch.load(f, map_location=args.device)
-            model.load_state_dict(state_dict)
-        logging.info(f"successfully loaded checkpoint from {model_path}")
+            model.load_state_dict(state_dict["model"])
+            opt.load_state_dict(state_dict["optimizer"])
+        logging.info(f"successfully loaded checkpoint from {checkpoint_path}")
     else:
         # in "rec" and "nonrec" tasks, if checkpoint is not specified, 
         # then we need to initialize the model with best checkpoint from "LR"
         if (args.task == "rec" or args.task == "nonrec"):
-            model_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}.pt".format(args.exp_name)
-            with open(model_path, 'rb') as f:
+            checkpoint_path = "/".join(args.checkpoint_dir.split("/")[:-1]) + "/LR/best_{}.pt".format(args.exp_name)
+            with open(checkpoint_path, 'rb') as f:
                 state_dict = torch.load(f, map_location=args.device)
-                model.load_state_dict(state_dict)
-            logging.info(f"successfully loaded checkpoint from {model_path}")
+                model.load_state_dict(state_dict["model"])
+            logging.info(f"successfully loaded checkpoint from {checkpoint_path}")
 
         # in "finetune" task, if checkpoint is not specified,
         # then we need to initialize the model with best checkpoint from "LR" (encoder & LR_decoder), "rec" (rec_decoder) and "nonrec" (nonrec_decoder)
@@ -210,9 +220,9 @@ def main(args):
                 state_dict_nonrec = torch.load(f_nonrec, map_location=args.device)
 
                 # retain corresponding modules only 
-                enc_dec_lr_state_d = {k:v for k, v in state_dict_LR.items() if "LR" in k or "encoder" in k}
-                dec_rec_state_d = {k:v for k, v in state_dict_rec.items() if "rec" in k and "nonrec" not in k}
-                dec_nonrec_state_d = {k:v for k, v in state_dict_nonrec.items() if "nonrec" in k}
+                enc_dec_lr_state_d = {k:v for k, v in state_dict_LR["model"].items() if "LR" in k or "encoder" in k}
+                dec_rec_state_d = {k:v for k, v in state_dict_rec["model"].items() if "rec" in k and "nonrec" not in k}
+                dec_nonrec_state_d = {k:v for k, v in state_dict_nonrec["model"].items() if "nonrec" in k}
 
                 # load state dict of corresponding modules 
                 model.load_state_dict(enc_dec_lr_state_d, strict=False)
@@ -224,7 +234,7 @@ def main(args):
                     {rec_model_path} \n\
                     {nonrec_model_path} ")
 
-    # 5. Freeze Module 
+    # 6. Freeze Module 
     if args.task == "LR":
         # in "LR" task, freeze decoders for recurrent and nonrecurrent prediction
         model.rec_decoder.requires_grad_(False)
@@ -239,10 +249,6 @@ def main(args):
         model.encoder.requires_grad_(False)
         model.LR_decoder.requires_grad_(False)
         model.rec_decoder.requires_grad_(False)
-
-    # 6. Set up Optimizer and LR Scheduler
-    opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
-    # scheduler = optim.lr_scheduler.StepLR(opt, step_size=args.lr_decay_freq, gamma=args.lr_decay_rate)
 
     # 7. Load Data for Training & Testing
     train_dataloader, val_dataloader, test_dataloader = get_data_loader(args=args)
@@ -262,8 +268,10 @@ def main(args):
     best_val_loss = float("inf")
     best_test_loss = float("inf")
     if args.load_checkpoint_epoch > 0:
-        loss_path = "{}/epoch_{}_{}_loss.pkl".format(args.checkpoint_dir, args.load_checkpoint_epoch, args.exp_name)
-        best_val_loss = pickle.load(open(loss_path, "rb"))["val_epoch_loss"]
+        checkpoint_path = "{}/{}.pt".format(args.checkpoint_dir, args.load_checkpoint)
+        with open(checkpoint_path, 'rb') as f:
+            state_dict = torch.load(f, map_location=args.device)
+            best_val_loss = state_dict["losses"]["best_val_epoch_loss_hitherto"]
     best_epoch = -1  # evaluated based on validation loss
 
     for epoch in range(max(0, args.load_checkpoint_epoch+1), args.num_epochs):
@@ -277,7 +285,7 @@ def main(args):
         # Save Model Checkpoint Regularly
         if epoch % args.checkpoint_every == 0:
             logging.info("checkpoint saved at epoch {}".format(epoch))
-            save_checkpoint(epoch=epoch, model=model, args=args, train_epoch_loss=train_epoch_loss, val_epoch_loss=val_epoch_loss, test_epoch_loss=test_epoch_loss, best=False)
+            save_checkpoint(epoch=epoch, model=model, opt=opt, args=args, train_epoch_loss=train_epoch_loss, val_epoch_loss=val_epoch_loss, test_epoch_loss=test_epoch_loss, best_val_epoch_loss_hitherto=best_val_loss, best=False)
 
         # Save Best Model Checkpoint
         if (val_epoch_loss <= best_val_loss):
@@ -285,7 +293,7 @@ def main(args):
             best_test_loss = test_epoch_loss
             best_epoch = epoch
             logging.info("best model saved at epoch {}".format(epoch))
-            save_checkpoint(epoch=epoch, model=model, args=args, train_epoch_loss=train_epoch_loss, val_epoch_loss=val_epoch_loss, test_epoch_loss=test_epoch_loss, best=True)
+            save_checkpoint(epoch=epoch, model=model, opt=opt, args=args, train_epoch_loss=train_epoch_loss, val_epoch_loss=val_epoch_loss, test_epoch_loss=test_epoch_loss, best_val_epoch_loss_hitherto=best_val_loss, best=True)
 
     end_time = dt.now()
     training_time = compute_train_time(start_time, end_time)
@@ -361,8 +369,9 @@ def create_parser():
             - input: no new features
             - output: in 5-min frequency
         6. "naive": naive combination of three encoder-decoder modules (LR, rec, nonrec)
+        7. "naive_2enc": naive combination of two-encoder-three-decoder modules (LR, rec, nonrec)
     '''
-    parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'no_fact', 'naive'")
+    parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'no_fact', 'naive', 'naive_2enc")
 
     parser.add_argument('--num_epochs', type=int, default=601, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
@@ -401,9 +410,9 @@ if __name__ == '__main__':
     args.checkpoint_dir += f"/{args.task}" 
 
     args.exp_name = args.model_type
-    args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_{str(args.use_expectation)[0]}" 
+    args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_hidden_{args.dim_hidden}_batch_{args.batch_size}_{str(args.use_expectation)[0]}" 
     if not args.use_expectation:
-        args.exp_name += f"{str(args.inc_threshold)}"
+        args.exp_name += f"_{str(args.inc_threshold)}"
 
     if args.load_checkpoint_epoch > 0:
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"

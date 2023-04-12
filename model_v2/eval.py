@@ -7,9 +7,9 @@ from torchmetrics import Accuracy
 from torchmetrics import PrecisionRecallCurve
 from tqdm import tqdm
 
-from models import Seq2SeqNoFact, Seq2SeqFact
-from data_loader import get_inference_data_loader, get_sorted_inference_data_loader
-from utils import create_dir, log_eval_meta, log_eval_spd_result_tmc, log_eval_spd_result_xd, visualize_attn_weight, log_eval_meta, log_lasso_result_tmc, log_lasso_result_xd
+from models import Seq2SeqNoFact, Seq2SeqFact, TransNoFact, TransFact
+from data_loader import get_inference_data_loader, get_sorted_inference_data_loader, get_data_loader
+from utils import create_dir, log_eval_meta, log_eval_spd_result_tmc, log_eval_spd_result_xd, visualize_attn_weight, log_eval_meta, log_lasso_result, log_xgboost_result, seed_torch
 from train import create_parser
 
 ##################################
@@ -70,12 +70,14 @@ def eval_error(infer_dataloader, model, factorization, args):
 
             # Make Prediction and Update Attention Weights
             if not factorization:
-                spd_pred, _, weights = model(x, target) 
-                attn_weights += torch.sum(weights, axis=0)  # (seq_len_out, seq_len_in)
+                spd_pred, _, weights = model(x, target, "eval") 
+                if args.model_type == "Seq2Seq":
+                    attn_weights += torch.sum(weights, axis=0)  # (seq_len_out, seq_len_in)
             else:
-                spd_pred, inc_pred, weights = model(x, target) 
+                spd_pred, inc_pred, weights = model(x, target, "eval") 
                 inc_predictions.append(inc_pred)  # entries are logits, list of (batch_size, seq_len_out, dim_out)
-                attn_weights = [attn_weights[i]+torch.sum(weights[i], axis=0) for i in range(3)]
+                if args.model_type == "Seq2Seq":
+                    attn_weights = [attn_weights[i]+torch.sum(weights[i], axis=0) for i in range(3)]
 
             # Compute Speed Prediction Error
             squre_error_matrix = (spd_pred-spd_target)**2  # for tmc ground truth: (batch_size, args.seq_len_out, args.dim_out*3); for xd ground truth: (batch_size, args.seq_len_out, args.dim_out)
@@ -225,46 +227,70 @@ def main(args):
 
 
     # 4. Initialize Models
-    base_model = Seq2SeqNoFact(args).to(args.device)
-    traffic_model = Seq2SeqFact(args).to(args.device)
-    traffic_model_use_inc_gt = Seq2SeqFact(args).to(args.device)
-    traffic_model_use_inc_gt.args.use_gt_inc = 1
+    if args.model_type == "Seq2Seq":
+        args.dim_hidden = 384
+        base_model = Seq2SeqNoFact(args).to(args.device)
+        args.dim_hidden = 256
+        traffic_model = Seq2SeqFact(args).to(args.device)
+        traffic_model.args.use_gt_inc = 0
+        traffic_model_use_inc_gt = Seq2SeqFact(args).to(args.device)
+        traffic_model_use_inc_gt.args.use_gt_inc = 1
+    else:
+        args.dim_hidden = 448
+        base_model = TransNoFact(args).to(args.device)
+        args.dim_hidden = 256
+        traffic_model = TransFact(args).to(args.device)
+        traffic_model.args.use_gt_inc = 0
+        traffic_model_use_inc_gt = TransFact(args).to(args.device)
+        traffic_model_use_inc_gt.args.use_gt_inc = 1
     
 
     # 5. Load Model Checkpoints
     # Base models (seq2seq models) are trained without args.use_expectation, although it doesn't make any difference whether args.use_expectation is true or not
     # Therefore, pretrained base models are all marked with "best_exp_x_x_x_x_x_x_F0.5.pt".
     # args.use_expectation does make a difference in 2-stage model (Traffic model)
-    base_model_path = "{}/no_fact/best_{}_{}_F0.5.pt".format(args.checkpoint_dir, args.model_type, "_".join(args.exp_name.split("_")[:-1]))
-    traffic_model_path = "{}/finetune/best_{}_{}.pt".format(args.checkpoint_dir, args.model_type, args.exp_name)
+    if args.model_type == "Seq2Seq":
+        base_model_path = "{}/no_fact/best_{}_384_{}_F_0.5.pt".format(args.checkpoint_dir, "_".join(args.exp_name.split("_")[:9]), "_".join(args.exp_name.split("_")[10:12]))
+        traffic_model_path = "{}/finetune/best_{}.pt".format(args.checkpoint_dir, args.exp_name)
+    else:
+        base_model_path = "{}/no_fact/best_{}_448_{}_F_0.5.pt".format(args.checkpoint_dir, "_".join(args.exp_name.split("_")[:9]), "_".join(args.exp_name.split("_")[10:12]))
+        traffic_model_path = "{}/finetune_try/best_{}.pt".format(args.checkpoint_dir, args.exp_name)
     with open(base_model_path, "rb") as f_base_model, open(traffic_model_path, "rb") as f_traffic_model:
         # load state dict
         state_dict_base = torch.load(f_base_model, map_location=args.device)
         state_dict_traffic = torch.load(f_traffic_model, map_location=args.device)
 
         # populate state dict into models and log
-        base_model.load_state_dict(state_dict_base)
+        base_model.load_state_dict(state_dict_base["model"])
         logging.info(f"successfully loaded checkpoint from {base_model_path}")
 
-        traffic_model.load_state_dict(state_dict_traffic)
-        traffic_model_use_inc_gt.load_state_dict(state_dict_traffic)
+        traffic_model.load_state_dict(state_dict_traffic["model"])
+        traffic_model_use_inc_gt.load_state_dict(state_dict_traffic["model"])
         logging.info(f"successfully loaded checkpoint from {traffic_model_path}")
     
 
     # 6. Load Data for Inference
-    infer_dataloader = get_inference_data_loader(args)
+    # infer_dataloader = get_inference_data_loader(args)
     # sorted_infer_dataloader = get_sorted_inference_data_loader(args)
+    infer_dataloader = get_data_loader(args)[2]
     logging.info(f"successfully loaded data \n")
     
 
     # 7. Get Evaluation Results
     # result for baseline 1 - Seq2Seq
+    if args.model_type == "Seq2Seq":
+        args.dim_hidden = 384
+    else:
+        args.dim_hidden = 448
     base_all_root_mse, base_rec_root_mse, base_nonrec_root_mse, base_all_mean_ape, base_rec_mean_ape, base_nonrec_mean_ape, base_attn_weight = eval_error(infer_dataloader=infer_dataloader, model=base_model, factorization=False, args=args)
 
     # result for 2-stage model
+    args.dim_hidden = 256
+    args.use_gt_inc = 0
     traffic_all_root_mse, traffic_rec_root_mse, traffic_nonrec_root_mse, traffic_all_mean_ape, traffic_rec_mean_ape, traffic_nonrec_mean_ape, [traffic_LR_attn_weight, traffic_rec_attn_weight, traffic_nonrec_attn_weight], inc_accu, inc_precision, inc_recall, inc_thresholds = eval_error(infer_dataloader=infer_dataloader, model=traffic_model, factorization=True, args=args)
 
     # result for 2-stage model assuming perfect incident prediction
+    args.use_gt_inc = 1
     inc_gt_traffic_all_root_mse, inc_gt_traffic_rec_root_mse, inc_gt_traffic_nonrec_root_mse, inc_gt_traffic_all_mean_ape, inc_gt_traffic_rec_mean_ape, inc_gt_traffic_nonrec_mean_ape, _, _, _, _, _ = eval_error(infer_dataloader=infer_dataloader, model=traffic_model_use_inc_gt, factorization=True, args=args)
 
     # result for baseline 3 - latest observation
@@ -286,15 +312,19 @@ def main(args):
     log_eval_spd_result_xd(base_all_root_mse, base_rec_root_mse, base_nonrec_root_mse, base_all_mean_ape, base_rec_mean_ape, base_nonrec_mean_ape)
     logging.info(" ")
 
-    logging.info('{:=^100}'.format(" Baseline 2 - LASSO "))
-    # TODO
-    # log_lasso_result_xd()
+    logging.info('{:=^100}'.format(" Baseline 2 - XGBoost "))
+    log_xgboost_result()
+    logging.info(" ")
 
-    logging.info('{:=^100}'.format(" Baseline 3 - Latest Observations "))
+    logging.info('{:=^100}'.format(" Baseline 3 - LASSO "))
+    log_lasso_result()
+    logging.info(" ")
+
+    logging.info('{:=^100}'.format(" Baseline 4 - Latest Observations "))
     log_eval_spd_result_xd(lo_all_root_mse, lo_rec_root_mse, lo_nonrec_root_mse, lo_all_mean_ape, lo_rec_mean_ape, lo_nonrec_mean_ape)
     logging.info(" ")
 
-    logging.info('{:=^100}'.format(" Baseline 4 - Historical Average "))
+    logging.info('{:=^100}'.format(" Baseline 5 - Historical Average "))
     logging.info(f"RMSE - all: 7.5180")
     logging.info(f"MAPE - all: 0.1827")
 
@@ -334,15 +364,15 @@ if __name__ == "__main__":
     args.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
     # For reproducibility
-    torch.manual_seed(args.seed)
+    seed_torch(args.seed)
 
     # Task specific directories
     args.log_dir = "./results" 
 
     args.exp_name = args.model_type
-    args.exp_name = f"{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_{str(args.use_expectation)[0]}"
+    args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_hidden_{args.dim_hidden}_batch_{args.batch_size}_{str(args.use_expectation)[0]}"
     if not args.use_expectation:
-        args.exp_name += str(args.inc_threshold)
+        args.exp_name += f"_{str(args.inc_threshold)}"
 
     # Change input dimension based on task type and whether to use new features or not
     if not args.use_dens:

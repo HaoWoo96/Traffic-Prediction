@@ -63,15 +63,13 @@ class EncoderRNN(nn.Module):
 
 # RNN Decoder without Attention
 class DecoderRNN(nn.Module):
-    def __init__(self, args, dec_type):
+    def __init__(self, args):
         '''
         INPUTs
             args: arguments
-            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "R": for regression of speed prediction)
         '''
         super(DecoderRNN, self).__init__()
         self.args = args
-        self.dec_type = dec_type
 
         self.gru = nn.GRU(input_size=args.dim_out, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
         
@@ -126,11 +124,10 @@ class DecoderRNN(nn.Module):
 
 # RNN Decoder with Attention
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, args, dec_type):
+    def __init__(self, args):
         '''
         INPUTs
             args: arguments
-            dec_type: type of decoder ("LR": for logistic regression of incident occurrence; "Non_LR": for speed prediction)
         '''
         super(AttnDecoderRNN, self).__init__()
         self.args = args
@@ -375,13 +372,13 @@ class DecoderTrans(nn.Module):
             processed_out = self.out(output)
         
         else:
-            prediction = target[:, 0, :].unsqueeze(1)  # (batch_size, 1, dim_out)
+            prediction = target[:, 0, :].unsqueeze(1).detach()  # (batch_size, 1, dim_out)
 
             for i in range(self.args.seq_len_out):
                 processed_tgt = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(prediction), 1, 2)), 1, 2)))  # (batch_size, i+1, dim_hidden)
                 temp_pred = self.trans_decoder(tgt=processed_tgt, memory=memory, tgt_mask=create_mask(num_row=processed_tgt.size(1), num_col=processed_tgt.size(1), device=self.args.device))  # (batch_size, i+1, dim_hidden)
                 processed_pred = self.out(temp_pred)  # (batch_size, i+1, dim_out)
-                prediction = torch.concat((prediction, processed_pred[:, -1, :].unsqueeze(1)), 1)  # (batch_size, i+2, dim_out)
+                prediction = torch.concat((prediction, processed_pred[:, -1, :].unsqueeze(1)), 1).detach()  # (batch_size, i+2, dim_out), use prediction as next input, detach from history
             
             # processed_out = prediction[:, 1:, :]
             processed_tgt = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(prediction[:, :self.args.seq_len_out, :]), 1, 2)), 1, 2)))  # (batch_size, seq_len_out, dim_hidden)

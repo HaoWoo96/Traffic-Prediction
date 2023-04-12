@@ -15,7 +15,7 @@ class TrafficData(Dataset):
         
         X_path = f"{self.args.data_dir}/np_in_5min.npy"  # sequence features of TMC segments in frequency of 5 min
         Y_path = f"{self.args.data_dir}/np_out_5min.npy"  # ground truth of TMC speed & incident data in frequency of 5 min
-        waze_inc_path = f"{self.args.data_dir}/df_waze_5min_207.npy"  # ground truth of Waze incident data in frequency of 5 min, used to evaluation ONLY
+        waze_inc_path = f"{self.args.data_dir}/np_waze_5min_207.npy"  # ground truth of Waze incident data in frequency of 5 min, used to evaluation ONLY
 
         self.all_X = torch.from_numpy(np.load(X_path)).float()  # (21060, feat_dim)
         self.waze_inc = torch.from_numpy(np.load(waze_inc_path)).float()  # (21060, feat_dim)

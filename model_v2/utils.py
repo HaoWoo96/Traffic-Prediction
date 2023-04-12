@@ -101,19 +101,21 @@ def patch_attention(m):
 ########################################
 #               FILE I/O               #
 ########################################
-def save_checkpoint(epoch, model, args, train_epoch_loss, val_epoch_loss, test_epoch_loss, best=False):
+def save_checkpoint(epoch, model, opt, args, train_epoch_loss, val_epoch_loss, test_epoch_loss, best_val_epoch_loss_hitherto, best=False):
     if best:
         checkpoint_path = os.path.join(args.checkpoint_dir, 'best_{}.pt'.format(args.exp_name))
-        loss_path = os.path.join(args.checkpoint_dir, 'best_{}_loss.pkl'.format(args.exp_name))
     else:
         checkpoint_path = os.path.join(args.checkpoint_dir, 'epoch_{}_{}.pt'.format(epoch, args.exp_name))
-        loss_path = os.path.join(args.checkpoint_dir, 'epoch_{}_{}_loss.pkl'.format(epoch, args.exp_name))
-    torch.save(model.state_dict(), checkpoint_path)
 
     losses = {"train_epoch_loss": train_epoch_loss, 
               "val_epoch_loss": val_epoch_loss,
-              "test_epoch_loss": test_epoch_loss}
-    pickle.dump(losses, open(loss_path, "wb"))
+              "test_epoch_loss": test_epoch_loss,
+              "best_val_epoch_loss_hitherto": best_val_epoch_loss_hitherto}
+    checkpoint = {"model": model.state_dict(),
+                  "optimizer": opt.state_dict(),
+                  "losses": losses
+                }
+    torch.save(checkpoint, checkpoint_path)
 
 def create_dir(directory):
     """
@@ -224,13 +226,21 @@ def log_eval_spd_result_xd(all_root_mse, rec_root_mse, nonrec_root_mse, all_mean
     logging.info(f"RMSE - all: {all_root_mse},  recurrent: {rec_root_mse},  nonrecurrent: {nonrec_root_mse}")
     logging.info(f"MAPE - all: {all_mean_ape},  recurrent: {rec_mean_ape},  nonrecurrent: {nonrec_mean_ape}")
 
-def log_lasso_result_xd(all_root_mse, rec_root_mse, nonrec_root_mse, all_mean_ape, rec_mean_ape, nonrec_mean_ape):
+def log_lasso_result():
     '''
     FUNCTION
-        Log LASSO result of speed prediction (ground truth: XD)
+        Log LASSO result of speed prediction
     '''
-    logging.info(f"RMSE - all: {[6.18508285, 6.18535092, 6.18686026, 6.18816916, 6.18909456, 6.19130026]},  recurrent: {[]},  nonrecurrent: {[]}")
-    logging.info(f"MAPE - all: {[0.14234066, 0.14231179, 0.14230198, 0.14237242, 0.14240318, 0.14245276]},  recurrent: {[]},  nonrecurrent: {[]}")
+    logging.info(f"RMSE - all: {[6.453372 , 6.63808  , 6.757279 , 6.8645077, 6.9156804, 6.971993]},  recurrent: {[]},  nonrecurrent: {[]}")
+    logging.info(f"MAPE - all: {[0.15540159, 0.16013004, 0.16331194, 0.16754444, 0.16880098, 0.17060609]},  recurrent: {[]},  nonrecurrent: {[]}")
+
+def log_xgboost_result():
+    '''
+    FUNCTION
+        Log XGBoost result of speed prediction
+    '''
+    logging.info(f"RMSE - all: {[6.4705167, 6.664564 , 6.7488294, 6.8029613, 6.828383 , 6.8608823]},  recurrent: {[]},  nonrecurrent: {[]}")
+    logging.info(f"MAPE - all: {[0.15061851, 0.15631141, 0.15885015, 0.16136487, 0.16192892, 0.16307214]},  recurrent: {[]},  nonrecurrent: {[]}")
 
 def log_eval_spd_result_tmc(all_root_mse, rec_root_mse, nonrec_root_mse, all_mean_ape, rec_mean_ape, nonrec_mean_ape):
     '''
