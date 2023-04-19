@@ -31,14 +31,10 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         target = target.to(args.device)  # (batch_size, out_seq_len + 1, dim_out, 2 or 4) for TrafficModel, (batch_size, out_seq_len + 1, dim_out) for TrafficSeq2Seq
 
         # Forward Pass
-        if args.model_type == "Seq2Seq":
-            # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
-            # the third element returned are attention weights, which won't be used here but will be visualized during inference.
-            pred, _, _ = model(x, target, mode="train")
-        elif args.model_type == "Trans":
-            pred = model(x, target, mode="train")
-        else:
-            pred = model(x, target, mode="train")
+        # The first element retruned is speed prediction (or inc prediction in "LR" task)
+        # The second element returned is incident predictions (logits) in finetune task, or hidden tensor in other tasks
+        # The third element returned is attention weights, which won't be used here but will be visualized during inference.
+        pred, inc_pred, _ = model(x, target, mode="train")
 
         # Compute Loss
         if args.task == "LR":
@@ -46,15 +42,19 @@ def train(train_dataloader, model, opt, epoch, args, writer):
             # don't forget to set pos_weight
             criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
             loss_per_sample = criterion(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
-        else: 
+        elif args.task in ["no_fact", "rec", "nonrec"]: 
             criterion = torch.nn.MSELoss()
             # register hook to only consider certain segments for the computation of loss
-            if args.task in {"rec", "nonrec"}:
-                if args.task == "rec":
-                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] < 0.5).float())
-                else:
-                    h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] >= 0.5).float())
+            if args.task == "rec":
+                h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] < 0.5).float())
+            else:
+                h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] >= 0.5).float())
             loss_per_sample = criterion(pred, target[:, 1:, :, 0])  # avg loss per time step per sample
+        else:
+            criterion_NoLR = torch.nn.MSELoss()
+            criterion_LR = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
+            
+            loss_per_sample = criterion_NoLR(pred, target[:, 1:, :, 0]) + criterion_LR(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
 
         epoch_loss += loss_per_sample*x.size(0)
         num_sample += x.size(0)
@@ -92,14 +92,10 @@ def eval(eval_dataloader, model, epoch, args, writer, eval_for_validation):
 
         with torch.no_grad():
             # Forward Pass
-            if args.model_type == "Seq2Seq":
-                # the second element returned are incident predictions (logits) in finetune task, or hidden tensor in other tasks
-                # the third element returned are attention weights, which won't be used here but will be visualized during inference.
-                pred, _, _ = model(x, target, mode="eval")
-            elif args.model_type == "Trans":
-                pred = model(x, target, mode="eval")
-            else:
-                pred = model(x, target)
+            # The first element retruned is speed prediction (or inc prediction in "LR" task)
+            # The second element returned is incident predictions (logits) in finetune task, or hidden tensor in other tasks
+            # The third element returned is attention weights, which won't be used here but will be visualized during inference.
+            pred, inc_pred, _ = model(x, target, mode="train")
 
             # Compute Loss
             if args.task == "LR":
@@ -107,9 +103,14 @@ def eval(eval_dataloader, model, epoch, args, writer, eval_for_validation):
                 # don't forget to set pos_weight
                 criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
                 loss_per_sample = criterion(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
-            else: 
+            elif args.task in ["no_fact", "rec", "nonrec"]: 
                 criterion = torch.nn.MSELoss()
-                loss_per_sample = criterion(pred, target[:, 1:, :, 0])
+                loss_per_sample = criterion(pred, target[:, 1:, :, 0])  # avg loss per time step per sample
+            else:
+                criterion_NoLR = torch.nn.MSELoss()
+                criterion_LR = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
+                
+                loss_per_sample = criterion_NoLR(pred, target[:, 1:, :, 0]) + criterion_LR(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
 
             epoch_loss += loss_per_sample*x.size(0)
             num_sample += x.size(0)

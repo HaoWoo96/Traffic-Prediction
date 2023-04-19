@@ -27,7 +27,7 @@ class Seq2SeqNoFact(nn.Module):
         '''
         INPUTs
             x: input, (batch_size, seq_len_in, dim_in)
-            target: (batch_size, seq_len_out+1, dim_out), for Seq2SeqNoFact, we pass in the speed data of <all vehicles>, which is index 0 in the last dimension of Y
+            target: (batch_size, seq_len_out+1, dim_out, 5), the last dimension refers to 1~3: speed (all, truck, pv); 4: incident status; 5: Waze incident status
             mode: string of value "train" or "eval", denoting the mode to control decoder
 
         OUTPUTs
@@ -229,7 +229,7 @@ class TransNoFact(nn.Module):
         '''
         INPUTs
             x: input, (batch_size, seq_len_in, dim_in)
-            target: target, (batch_size, seq_len_out+1, dim_out)
+            target: (batch_size, seq_len_out+1, dim_out, 5), the last dimension refers to 1~3: speed (all, truck, pv); 4: incident status; 5: Waze incident status
             mode: string of value "train" or "eval", denoting the mode to control decoder
 
         OUTPUTs
@@ -238,7 +238,7 @@ class TransNoFact(nn.Module):
         enc_out = self.encoder(x)  # (batch_size, seq_len_in, dim_hidden)
         dec_out = self.decoder(target[..., 0], enc_out, mode)
 
-        return dec_out
+        return dec_out, 0, 0
 
 
 # 2.2 Transformer Model with Factorization
@@ -272,11 +272,11 @@ class TransFact(nn.Module):
         xxx_dec_out: (batch_size, seq_len_out, dim_out)  
         '''
         if self.args.task == "LR":
-            return self.LR_decoder(target[..., 3], enc_out, mode)
+            return self.LR_decoder(target[..., 3], enc_out, mode), 0, 0
         elif self.args.task == "rec":
-            return self.rec_decoder(target[..., 0], enc_out, mode)
+            return self.rec_decoder(target[..., 0], enc_out, mode), 0, 0
         elif self.args.task == "nonrec":
-            return self.nonrec_decoder(target[..., 0], enc_out, mode)
+            return self.nonrec_decoder(target[..., 0], enc_out, mode), 0, 0
         else:
             LR_out = self.LR_decoder(target[..., 3], enc_out, mode)
             rec_out = self.rec_decoder(target[..., 0], enc_out, mode)
@@ -292,7 +292,7 @@ class TransFact(nn.Module):
                 else:
                     speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
             
-            return speed_pred, LR_out
+            return speed_pred, LR_out, 0
 
 # 2.3 Transformer of Naive Combination
 class TransFactNaive(nn.Module):
@@ -360,7 +360,7 @@ class GTransNoFact(nn.Module):
         '''
         INPUTs
             x: input, (batch_size, seq_len_in, num_node, dim_in)
-            target: target, (batch_size, seq_len_out+1, num_node, dim_out)
+            target: (batch_size, seq_len_out+1, num_node, 5), the last dimension refers to 1~3: speed (all, truck, pv); 4: incident status; 5: Waze incident status
             mode: string of value "train" or "eval", denoting the mode to control decoder
 
         OUTPUTs
@@ -387,7 +387,7 @@ class GTransFact(nn.Module):
         '''
         INPUTs
             x: input, (batch_size, seq_len_in, num_node, dim_in)
-            target: (batch_size, seq_len_out+1, dim_out, 5), the last dimension refers to 1~3: speed (all, truck, pv); 4: incident status; 5: Waze incident status
+            target: (batch_size, seq_len_out+1, num_node, 5), the last dimension refers to 1~3: speed (all, truck, pv); 4: incident status; 5: Waze incident status
             mode: string of value "train" or "eval", denoting the mode to control decoder
 
         OUTPUTs
