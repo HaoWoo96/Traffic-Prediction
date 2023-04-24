@@ -1,4 +1,5 @@
 .DS_Store
+playground.ipynb
 data/.rcrs_vis.pickle.icloud
 data/col_names.npy
 data/cran_tmc.npy
