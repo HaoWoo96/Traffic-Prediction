@@ -52,10 +52,13 @@ class Seq2SeqFact(nn.Module):
         super(Seq2SeqFact, self).__init__()
         self.args = args
         self.encoder = EncoderRNN(args=args)
+        self.inc_activation = nn.Sigmoid()
 
         self.LR_decoder = AttnDecoderRNN(args=args)  # decoder for incident prediction (logistic regression)
         self.rec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in recurrent scenario
         self.nonrec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in non-recurrent scenario
+
+        self.args = args
     
     def forward(self, x, target, mode):
         '''
@@ -82,25 +85,30 @@ class Seq2SeqFact(nn.Module):
         xxx_attn_weights: (batch_size, seq_len_out, seq_len_in)
         '''
         if self.args.task == "LR":
-            return self.LR_decoder(target[..., 3], enc_hidden, enc_out, mode)
+            return self.LR_decoder(target[..., 3], enc_hidden, enc_out, mode)  # Be careful! LR_out hasn't gone through nn.Sigmoid and doesn't denote the probability
         elif self.args.task == "rec":
             return self.rec_decoder(target[..., 0], enc_hidden, enc_out, mode)
         elif self.args.task == "nonrec":
             return self.nonrec_decoder(target[..., 0], enc_hidden, enc_out, mode)
         else:
             LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 3], enc_hidden, enc_out, mode)
+            inc_pred = self.inc_activation(LR_out)
             rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], enc_hidden, enc_out, mode)
             nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], enc_hidden, enc_out, mode)
 
             # generate final speed prediction
             if self.args.use_gt_inc:
-                speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
+                rec_weight = target[:, 1:, :, 3] < 0.5
+                nonrec_weight = target[:, 1:, :, 3] >= 0.5
             else:
                 if self.args.use_expectation:
-                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - inc_pred
+                    nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight
                 else:
-                    speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
+                    rec_weight = inc_pred < self.args.inc_threshold
+                    nonrec_weight = inc_pred >= self.args.inc_threshold
+
+            speed_pred = rec_out * rec_weight + nonrec_out * nonrec_weight
             
             return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
 
@@ -109,6 +117,8 @@ class Seq2SeqFactNaive(nn.Module):
     def __init__(self, args):
         super(Seq2SeqFactNaive, self).__init__()
         self.args = args
+        self.inc_activation = nn.Sigmoid()
+
         self.LR_encoder = EncoderRNN(args=args)
         self.rec_encoder = EncoderRNN(args=args)
         self.nonrec_encoder = EncoderRNN(args=args)
@@ -146,18 +156,23 @@ class Seq2SeqFactNaive(nn.Module):
         xxx_attn_weights: (batch_size, seq_len_out, seq_len_in)
         '''
         LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 3], LR_enc_hidden, LR_enc_out, mode)
+        inc_pred = self.inc_activation(LR_out)
         rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], rec_enc_hidden, rec_enc_out, mode)
         nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], nonrec_enc_hidden, nonrec_enc_out, mode)
 
         # generate final speed prediction
         if self.args.use_gt_inc:
-            speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
+            rec_weight = target[:, 1:, :, 3] < 0.5
+            nonrec_weight = target[:, 1:, :, 3] >= 0.5
         else:
             if self.args.use_expectation:
-                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - inc_pred
+                nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight
             else:
-                speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
+                rec_weight = inc_pred < self.args.inc_threshold
+                nonrec_weight = inc_pred >= self.args.inc_threshold
+
+        speed_pred = rec_out * rec_weight + nonrec_out * nonrec_weight
         
         return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
 
@@ -165,6 +180,7 @@ class Seq2SeqFactNaive_2enc(nn.Module):
     def __init__(self, args):
         super(Seq2SeqFactNaive_2enc, self).__init__()
         self.args = args
+        self.inc_activation = nn.Sigmoid()
         self.LR_encoder = EncoderRNN(args=args)
         self.Non_LR_encoder = EncoderRNN(args=args)
 
@@ -199,18 +215,23 @@ class Seq2SeqFactNaive_2enc(nn.Module):
         xxx_attn_weights: (batch_size, seq_len_out, seq_len_in)
         '''
         LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 3], LR_enc_hidden, LR_enc_out, mode)
+        inc_pred = self.inc_activation(LR_out)
         rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], Non_LR_enc_hidden, Non_LR_enc_out, mode)
         nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], Non_LR_enc_hidden, Non_LR_enc_out, mode)
 
         # generate final speed prediction
         if self.args.use_gt_inc:
-            speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
+            rec_weight = target[:, 1:, :, 3] < 0.5
+            nonrec_weight = target[:, 1:, :, 3] >= 0.5
         else:
             if self.args.use_expectation:
-                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - inc_pred
+                nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight
             else:
-                speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
+                rec_weight = inc_pred < self.args.inc_threshold
+                nonrec_weight = inc_pred >= self.args.inc_threshold
+
+        speed_pred = rec_out * rec_weight + nonrec_out * nonrec_weight
         
         return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
     
@@ -247,6 +268,7 @@ class TransFact(nn.Module):
         super(TransFact, self).__init__()
         self.args = args
         self.encoder = EncoderTrans(args=args)
+        self.inc_activation = nn.Sigmoid()
 
         self.LR_decoder = DecoderTrans(args=args)  # decoder for incident prediction (logistic regression)
         self.rec_decoder = DecoderTrans(args=args)  # decoder for speed prediction in recurrent scenario
@@ -279,18 +301,23 @@ class TransFact(nn.Module):
             return self.nonrec_decoder(target[..., 0], enc_out, mode), 0, 0
         else:
             LR_out = self.LR_decoder(target[..., 3], enc_out, mode)
+            inc_pred = self.inc_activation(LR_out)
             rec_out = self.rec_decoder(target[..., 0], enc_out, mode)
             nonrec_out = self.nonrec_decoder(target[..., 0], enc_out, mode)
 
             # generate final speed prediction
             if self.args.use_gt_inc:
-                speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
+                rec_weight = target[:, 1:, :, 3] < 0.5
+                nonrec_weight = target[:, 1:, :, 3] >= 0.5
             else:
                 if self.args.use_expectation:
-                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - inc_pred
+                    nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight
                 else:
-                    speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
+                    rec_weight = inc_pred < self.args.inc_threshold
+                    nonrec_weight = inc_pred >= self.args.inc_threshold
+
+            speed_pred = rec_out * rec_weight + nonrec_out * nonrec_weight
             
             return speed_pred, LR_out, 0
 
@@ -299,6 +326,7 @@ class TransFactNaive(nn.Module):
     def __init__(self, args):
         super(TransFactNaive, self).__init__()
         self.args = args
+        self.inc_activation = nn.Sigmoid()
         self.LR_encoder = EncoderTrans(args=args)
         self.rec_encoder = EncoderTrans(args=args)
         self.nonrec_encoder = EncoderTrans(args=args)
@@ -329,18 +357,23 @@ class TransFactNaive(nn.Module):
         xxx_out: (batch_size, seq_len_out, dim_out)  
         '''
         LR_out = self.LR_decoder(target[..., 3], LR_enc_out, mode)
+        inc_pred = self.inc_activation(LR_out)
         rec_out = self.rec_decoder(target[..., 0], rec_enc_out, mode)
         nonrec_out = self.nonrec_decoder(target[..., 0], nonrec_enc_out, mode)
 
         # generate final speed prediction
         if self.args.use_gt_inc:
-            speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
+            rec_weight = target[:, 1:, :, 3] < 0.5
+            nonrec_weight = target[:, 1:, :, 3] >= 0.5
         else:
             if self.args.use_expectation:
-                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                rec_weight = torch.ones(LR_out.size()).to(self.args.device) - inc_pred
+                nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight
             else:
-                speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
+                rec_weight = inc_pred < self.args.inc_threshold
+                nonrec_weight = inc_pred >= self.args.inc_threshold
+
+        speed_pred = rec_out * rec_weight + nonrec_out * nonrec_weight
         
         return speed_pred
 
@@ -377,6 +410,7 @@ class GTransFact(nn.Module):
     def __init__(self, args):
         super(TransFact, self).__init__()
         self.args = args
+        self.inc_activation = nn.Sigmoid()
         self.encoder = EncoderGTrans(args=args)
 
         self.LR_decoder = DecoderGTrans(args=args)  # decoder for incident prediction (logistic regression)
@@ -410,17 +444,22 @@ class GTransFact(nn.Module):
             return self.nonrec_decoder(target[..., 0], enc_out, mode)
         else:
             LR_out = self.LR_decoder(target[..., 3], enc_out, mode)
+            inc_pred = self.inc_activation(LR_out)
             rec_out = self.rec_decoder(target[..., 0], enc_out, mode)
             nonrec_out = self.nonrec_decoder(target[..., 0], enc_out, mode)
 
             # generate final speed prediction
             if self.args.use_gt_inc:
-                speed_pred = rec_out * (target[:, 1:, :, 3] < 0.5) + nonrec_out * (target[:, 1:, :, 3] >= 0.5)
+                rec_weight = target[:, 1:, :, 3] < 0.5
+                nonrec_weight = target[:, 1:, :, 3] >= 0.5
             else:
                 if self.args.use_expectation:
-                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - LR_out
-                    speed_pred = rec_out * rec_weight + nonrec_out * LR_out 
+                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - inc_pred
+                    nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight
                 else:
-                    speed_pred = rec_out * (LR_out < self.args.inc_threshold) + nonrec_out * (LR_out >= self.args.inc_threshold)
+                    rec_weight = inc_pred < self.args.inc_threshold
+                    nonrec_weight = inc_pred >= self.args.inc_threshold
+
+            speed_pred = rec_out * rec_weight + nonrec_out * nonrec_weight
             
             return speed_pred, LR_out

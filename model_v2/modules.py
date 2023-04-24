@@ -187,7 +187,7 @@ class AttnDecoderRNN(nn.Module):
     def forward(self, target, hidden, enc_output, mode):
         '''
         INPUTs
-            target: (batch_size, seq_len_out, dim_out), the entries in the last dimension is either speed data or incident status
+            target: (batch_size, seq_len_out+1, dim_out), the entries in the last dimension is either speed data or incident status
             hidden: the hidden tensor computed from encoder, (dec_num_layer, batch_size, dim_hidden) 
             enc_output: (batch_size, seq_len_in, dim_hidden)
             mode: string of value "train" or "eval", denoting the mode to control decoder
@@ -265,13 +265,13 @@ class PosEmbed(nn.Module):
         if input:
             position = torch.arange(args.seq_len_in).unsqueeze(1) # (seq_len_in, 1)
             div_term = torch.exp(torch.arange(0, args.dim_hidden, 2)*(-math.log(10000.0) / args.dim_hidden))
-            self.pos_embed = torch.zeros(1, args.seq_len_in, args.dim_hidden).to(self.args.device)
-            self.learnable_pos_embed = nn.Parameter(torch.zeros(args.seq_len_in, args.dim_hidden)).to(self.args.device) # learnable positional embedding 
+            self.pos_embed = torch.zeros(1, args.seq_len_in, args.dim_hidden).to(args.device)
+            self.learnable_pos_embed = nn.Parameter(torch.zeros(args.seq_len_in, args.dim_hidden)).to(args.device) # learnable positional embedding 
         else:
             position = torch.arange(args.seq_len_out).unsqueeze(1) # (seq_len_out, 1)
             div_term = torch.exp(torch.arange(0, args.dim_hidden, 2)*(-math.log(10000.0) / args.dim_hidden))
-            self.pos_embed = torch.zeros(1, args.seq_len_out, args.dim_hidden).to(self.args.device)
-            self.learnable_pos_embed = nn.Parameter(torch.zeros(args.seq_len_out, args.dim_hidden)).to(self.args.device) # learnable positional embedding 
+            self.pos_embed = torch.zeros(1, args.seq_len_out, args.dim_hidden).to(args.device)
+            self.learnable_pos_embed = nn.Parameter(torch.zeros(args.seq_len_out, args.dim_hidden)).to(args.device) # learnable positional embedding 
 
         self.pos_embed[0, :, 0::2] = torch.sin(position * div_term)
         self.pos_embed[0, :, 1::2] = torch.cos(position * div_term)
@@ -291,7 +291,7 @@ class PosEmbed(nn.Module):
             output: (batch_size, seq_len_in or seq_len_out, dim_hidden)
         '''
         if len(x.size()) == 3:
-            x = x + self.pos_embed + self.learnable_pos_embed.unsqueeze(0).unsqueeze(2)
+            x = x + self.pos_embed + self.learnable_pos_embed.unsqueeze(0)
         else:
             x = x + self.pos_embed.unsqueeze(2) + self.learnable_pos_embed.unsqueeze(0).unsqueeze(2)
         return self.dropout(x)
@@ -396,16 +396,17 @@ class DecoderTrans(nn.Module):
             processed_out = self.output_processing(output)
         
         else:
+            # Without teacher-forcing, we first make predictions step by step within for-loop, and then pass the intermediate result into the tranformer decoder
             prediction = target[:, 0, :].unsqueeze(1).detach()  # (batch_size, 1, dim_out)
 
             for i in range(self.args.seq_len_out):
-                self.input_processing(prediction)  # (batch_size, i+1, dim_hidden)
+                processed_tgt = self.input_processing(prediction)  # (batch_size, i+1, dim_hidden)
                 temp_pred = self.trans_decoder(tgt=processed_tgt, memory=memory, tgt_mask=create_mask(num_row=processed_tgt.size(1), num_col=processed_tgt.size(1), device=self.args.device))  # (batch_size, i+1, dim_hidden)
                 processed_pred = self.output_processing(temp_pred)  # (batch_size, i+1, dim_out)
                 prediction = torch.concat((prediction, processed_pred[:, -1, :].unsqueeze(1)), 1).detach()  # (batch_size, i+2, dim_out), use prediction as next input, detach from history
             
-            # processed_out = prediction[:, 1:, :]
-            processed_tgt = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(prediction[:, :self.args.seq_len_out, :]), 1, 2)), 1, 2)))  # (batch_size, seq_len_out, dim_hidden)
+            # variable "prediction" has shape (batch_size, args.seq_len_out+1, dim_out) after the for-loop
+            processed_tgt = self.input_processing(prediction[:, :self.args.seq_len_out, :])  # (batch_size, seq_len_out, dim_hidden)
 
             # Avoid original feature embedding overshadowed by positional embedding
             # More info: # https://datascience.stackexchange.com/questions/87906/transformer-model-why-are-word-embeddings-scaled-before-adding-positional-encod/87909#87909

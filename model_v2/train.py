@@ -22,8 +22,11 @@ def train(train_dataloader, model, opt, epoch, args, writer):
 
     model.train()
     step = epoch*len(train_dataloader)
-    epoch_loss = 0
     num_sample = 0
+    if args.task in ["LR", "no_fact", "rec", "nonrec"]:
+        epoch_loss = [0.0]
+    else:
+        epoch_loss = [0.0, 0.0]
 
     for i, batch in enumerate(train_dataloader):
         x, target = batch
@@ -37,31 +40,30 @@ def train(train_dataloader, model, opt, epoch, args, writer):
         pred, inc_pred, _ = model(x, target, mode="train")
 
         # Compute Loss
+        criterion_spd = torch.nn.MSELoss()
+        criterion_inc = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight)) # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable; don't forget to set pos_weight 
+        # criterion_inc = torch.nn.BCELoss(weight=torch.tensor(args.LR_pos_weight))
         if args.task == "LR":
-            # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
-            # don't forget to set pos_weight
-            criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
-            loss_per_sample = criterion(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
+            loss_per_sample = [criterion_inc(pred, target[:, 1:, :, 3])]  # avg loss per time step per sample
         elif args.task in ["no_fact", "rec", "nonrec"]: 
-            criterion = torch.nn.MSELoss()
             # register hook to only consider certain segments for the computation of loss
             if args.task == "rec":
                 h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] < 0.5).float())
-            else:
+            elif args.task == "nonrec":
                 h = pred.register_hook(lambda grad: grad * (target[:, 1:, :, 3] >= 0.5).float())
-            loss_per_sample = criterion(pred, target[:, 1:, :, 0])  # avg loss per time step per sample
+            loss_per_sample = [criterion_spd(pred, target[:, 1:, :, 0])]  # avg loss per time step per sample
         else:
-            criterion_NoLR = torch.nn.MSELoss()
-            criterion_LR = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
-            
-            loss_per_sample = criterion_NoLR(pred, target[:, 1:, :, 0]) + criterion_LR(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
+            loss_per_sample = [criterion_spd(pred, target[:, 1:, :, 0]), criterion_inc(inc_pred, target[:, 1:, :, 3])]  # avg loss per time step per sample
+        
+        epoch_loss = [epoch_loss[i] + loss_per_sample[i].detach()*x.size(0)  for i in range(len(epoch_loss))]
 
-        epoch_loss += loss_per_sample*x.size(0)
+        # epoch_loss += loss_per_sample*x.size(0)
         num_sample += x.size(0)
 
         # Backward and Optimize
         opt.zero_grad()
-        loss_per_sample.backward()
+        # loss_per_sample.backward()
+        sum(loss_per_sample).backward()
         opt.step()
 
         # remove hook if needed
@@ -69,21 +71,25 @@ def train(train_dataloader, model, opt, epoch, args, writer):
             h.remove()
 
         # Logging
-        writer.add_scalar("train_loss", loss_per_sample.item(), step+i)
+        writer.add_scalar("train_loss", sum(loss_per_sample).item(), step+i)
     
     # Decay Learning Rate
     # scheduler.step()
     
     # return epoch_loss/len(train_dataloader)
-    return epoch_loss/num_sample  # avg loss per time step per sample
+    # return epoch_loss/num_sample  # avg loss per time step per sample
+    return [e/num_sample for e in epoch_loss]
 
 
 def eval(eval_dataloader, model, epoch, args, writer, eval_for_validation):
 
     model.eval() # deactivate dropout, and adjust for batch normalization
     step = epoch*len(eval_dataloader)
-    epoch_loss = 0
     num_sample = 0
+    if args.task in ["LR", "no_fact", "rec", "nonrec"]:
+        epoch_loss = [0.0]
+    else:
+        epoch_loss = [0.0, 0.0]
 
     for i, batch in enumerate(eval_dataloader):
         x, target = batch
@@ -95,34 +101,37 @@ def eval(eval_dataloader, model, epoch, args, writer, eval_for_validation):
             # The first element retruned is speed prediction (or inc prediction in "LR" task)
             # The second element returned is incident predictions (logits) in finetune task, or hidden tensor in other tasks
             # The third element returned is attention weights, which won't be used here but will be visualized during inference.
-            pred, inc_pred, _ = model(x, target, mode="train")
+            pred, inc_pred, _ = model(x, target, mode="eval")
 
             # Compute Loss
+            criterion_spd = torch.nn.MSELoss()
+            criterion_inc = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight)) # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable; don't forget to set pos_weight 
+            # criterion_inc = torch.nn.BCELoss(weight=torch.tensor(args.LR_pos_weight))
             if args.task == "LR":
-                # combine nn.Sigmoid() with nn.BCELoss() but more numerically stable
-                # don't forget to set pos_weight
-                criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
-                loss_per_sample = criterion(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
+                loss_per_sample = [criterion_inc(pred, target[:, 1:, :, 3])]  # avg loss per time step per sample
             elif args.task in ["no_fact", "rec", "nonrec"]: 
-                criterion = torch.nn.MSELoss()
-                loss_per_sample = criterion(pred, target[:, 1:, :, 0])  # avg loss per time step per sample
+                loss_per_sample = [criterion_spd(pred, target[:, 1:, :, 0])]  # avg loss per time step per sample
             else:
-                criterion_NoLR = torch.nn.MSELoss()
-                criterion_LR = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(args.LR_pos_weight))
-                
-                loss_per_sample = criterion_NoLR(pred, target[:, 1:, :, 0]) + criterion_LR(pred, target[:, 1:, :, 3])  # avg loss per time step per sample
+                loss_per_sample = [criterion_spd(pred, target[:, 1:, :, 0]), criterion_inc(inc_pred, target[:, 1:, :, 3])]  # avg loss per time step per sample
 
-            epoch_loss += loss_per_sample*x.size(0)
+            epoch_loss = [epoch_loss[i] + loss_per_sample[i]*x.size(0)  for i in range(len(epoch_loss))]
+            # epoch_loss += loss_per_sample*x.size(0)
             num_sample += x.size(0)
 
         # Logging
+        # if eval_for_validation:
+        #     writer.add_scalar("val_loss", loss_per_sample.item(), step+i)
+        # else:
+        #     writer.add_scalar("test_loss", loss_per_sample.item(), step+i)
+        
         if eval_for_validation:
-            writer.add_scalar("val_loss", loss_per_sample.item(), step+i)
+            writer.add_scalar("val_loss", sum(loss_per_sample).item(), step+i)
         else:
-            writer.add_scalar("test_loss", loss_per_sample.item(), step+i)
+            writer.add_scalar("test_loss", sum(loss_per_sample).item(), step+i)
     
     # return epoch_loss/len(eval_dataloader)
-    return epoch_loss/num_sample  # avg loss per time step per sample
+    # return epoch_loss/num_sample  # avg loss per time step per sample
+    return [e/num_sample for e in epoch_loss]
 
 
 ########################################
@@ -152,14 +161,14 @@ def main(args):
         elif args.model_type == "Trans":
             model = TransNoFact(args).to(args.device)
         else:
-            model = STGCNNoFact(args).to(args.device)
+            model = GTransFact(args).to(args.device)
     elif args.task == "naive":
         if args.model_type == "Seq2Seq":
             model = Seq2SeqFactNaive(args).to(args.device)
         elif args.model_type == "Trans":
             model = TransFactNaive(args).to(args.device)
         else:
-            model = STGCNFactNaive(args).to(args.device)
+            pass
     elif args.task == "naive_2enc":
         if args.model_type == "Seq2Seq":
             model = Seq2SeqFactNaive_2enc(args).to(args.device)
@@ -171,10 +180,11 @@ def main(args):
         elif args.model_type == "Trans":
             model = TransFact(args).to(args.device)
         else:
-            model = STGCNFact(args).to(args.device)
+            model = GTransFact(args).to(args.device)
 
     # 4. Set up Optimizer and LR Scheduler
-    opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
+    # opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
+    opt = optim.AdamW(params=model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=0.01)  # performs better than Adam
     # scheduler = optim.lr_scheduler.StepLR(opt, step_size=args.lr_decay_freq, gamma=args.lr_decay_rate)
 
 
@@ -266,8 +276,8 @@ def main(args):
     logging.info(f"Average losses are calculated per time step per sample.")
     
     start_time = dt.now()
-    best_val_loss = float("inf")
-    best_test_loss = float("inf")
+    best_val_loss = [float("inf")]
+    best_test_loss = [float("inf")]
     if args.load_checkpoint_epoch > 0:
         checkpoint_path = "{}/{}.pt".format(args.checkpoint_dir, args.load_checkpoint)
         with open(checkpoint_path, 'rb') as f:
@@ -281,7 +291,10 @@ def main(args):
         val_epoch_loss = eval(val_dataloader, model, epoch, args, writer, True)
         test_epoch_loss = eval(test_dataloader, model, epoch, args, writer, False)
 
-        logging.info("epoch: {}   train loss: {:.4f}   val loss: {:.4f}   test loss: {:.4f}".format(epoch, train_epoch_loss, val_epoch_loss, test_epoch_loss))
+        if len(train_epoch_loss) == 1:
+            logging.info("epoch: {}   train loss: {:.4f}   val loss: {:.4f}   test loss: {:.4f}".format(epoch, train_epoch_loss[0], val_epoch_loss[0], test_epoch_loss[0]))
+        else:
+            logging.info("epoch: {}   train loss: {:.4f} + {:.4f}   val loss: {:.4f} + {:.4f}   test loss: {:.4f} + {:.4f}".format(epoch, train_epoch_loss[0], train_epoch_loss[1], val_epoch_loss[0], val_epoch_loss[1], test_epoch_loss[0], test_epoch_loss[1]))
         
         # Save Model Checkpoint Regularly
         if epoch % args.checkpoint_every == 0:
@@ -289,7 +302,13 @@ def main(args):
             save_checkpoint(epoch=epoch, model=model, opt=opt, args=args, train_epoch_loss=train_epoch_loss, val_epoch_loss=val_epoch_loss, test_epoch_loss=test_epoch_loss, best_val_epoch_loss_hitherto=best_val_loss, best=False)
 
         # Save Best Model Checkpoint
-        if (val_epoch_loss <= best_val_loss):
+        # if (val_epoch_loss <= best_val_loss):
+        #     best_val_loss = val_epoch_loss
+        #     best_test_loss = test_epoch_loss
+        #     best_epoch = epoch
+        #     logging.info("best model saved at epoch {}".format(epoch))
+        #     save_checkpoint(epoch=epoch, model=model, opt=opt, args=args, train_epoch_loss=train_epoch_loss, val_epoch_loss=val_epoch_loss, test_epoch_loss=test_epoch_loss, best_val_epoch_loss_hitherto=best_val_loss, best=True)
+        if (val_epoch_loss[0] <= best_val_loss[0]):
             best_val_loss = val_epoch_loss
             best_test_loss = test_epoch_loss
             best_epoch = epoch
@@ -298,8 +317,10 @@ def main(args):
 
     end_time = dt.now()
     training_time = compute_train_time(start_time, end_time)
-    logging.info('{:=^100}'.format(" Training completes after {} hr {} min {} sec ({} epochs trained, best epoch at {} with val loss = {:.4f} and test loss = {:.4f}) ".format(training_time["hours"], training_time["minutes"], training_time["seconds"], args.num_epochs, best_epoch, best_val_loss, best_test_loss)))
-
+    if len(best_val_loss) == 1:
+        logging.info('{:=^100}'.format(" Training completes after {} hr {} min {} sec ({} epochs trained, best epoch at {} with val loss = {:.4f} and test loss = {:.4f}) ".format(training_time["hours"], training_time["minutes"], training_time["seconds"], args.num_epochs, best_epoch, best_val_loss[0], best_test_loss[0])))
+    else:
+        logging.info('{:=^100}'.format(" Training completes after {} hr {} min {} sec ({} epochs trained, best epoch at {} with val loss = {:.4f} + {:.4f} and test loss = {:.4f} + {:.4f}) ".format(training_time["hours"], training_time["minutes"], training_time["seconds"], args.num_epochs, best_epoch, best_val_loss[0], best_val_loss[1], best_test_loss[0], best_test_loss[1])))
 
 def create_parser():
     """
@@ -378,9 +399,9 @@ def create_parser():
     parser.add_argument('--task', type=str, help="Choose one from 'LR', 'rec', 'nonrec', 'finetune', 'no_fact', 'naive', 'naive_2enc")
 
     parser.add_argument('--num_epochs', type=int, default=601, help='Number of epochs for training')
-    parser.add_argument('--batch_size', type=int, default=32, help='Number of sequences in a batch.')
+    parser.add_argument('--batch_size', type=int, default=64, help='Number of sequences in a batch.')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of threads to use for the DataLoader.')
-    parser.add_argument('--lr', type=float, default=0.0003, help='Learning rate (default 0.0003)')
+    parser.add_argument('--lr', type=float, default=0.00025, help='Learning rate (default 0.0003)')
     # parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='Decay Rate of Learning rate (default 0.1)')
     # parser.add_argument('--lr_decay_freq', type=int, default=50, help='Decay Frequency (in terms of epochs) of Learning rate  (default 50)')
 
@@ -391,7 +412,7 @@ def create_parser():
     parser.add_argument('--log_dir', type=str, default='./logs')
 
     parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints')
-    parser.add_argument('--checkpoint_every', type=int , default=20)
+    parser.add_argument('--checkpoint_every', type=int , default=100)
 
     parser.add_argument('--load_checkpoint', type=str, default='', help='Name of the checkpoint')
     parser.add_argument('--load_checkpoint_epoch', type=int, default=-1, help='Epoch of the checkpoint')
@@ -414,9 +435,9 @@ if __name__ == '__main__':
     args.checkpoint_dir += f"/{args.task}" 
 
     args.exp_name = args.model_type
-    args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_hidden_{args.dim_hidden}_batch_{args.batch_size}_{str(args.use_expectation)[0]}" 
+    args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_hidden_{args.dim_hidden}_batch_{args.batch_size}_lr_{args.lr}_{str(args.use_expectation)[0]}" 
     if not args.use_expectation:
-        args.exp_name += f"_{str(args.inc_threshold)}"
+        args.exp_name += f"{str(args.inc_threshold)}"
 
     if args.load_checkpoint_epoch > 0:
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
