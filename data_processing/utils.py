@@ -132,6 +132,7 @@ def angle(xd_start_lat, xd_start_long, tmc_start_lat, tmc_start_long, xd_end_lat
     unit_v2 = v2/np.linalg.norm(v2)
     return np.arccos(np.clip(np.dot(unit_v1, unit_v2), -1.0, 1.0))/np.pi
 
+
 def angle_neighbor(curr_geo, prev_geo):
     '''
     Helper function to compute angle between neighbor segments
@@ -239,6 +240,82 @@ def compute_upstream(source, dict_prev, dict_upstream):
             for r in prev_result:
                 result.append([p]+r)
         return result
+
+
+def compute_upstream_within_range(source, dict_prev, dict_upstream_within_range, dict_miles, d):
+    '''
+    INPUTs
+        source: source segment
+        dict_prev: dictionary object storing immediate upstream neighbor
+            key: current segment
+            value: previous neighbor(s), list or None
+        dict_upstream_within_range: dictionary object storing upstream segments within range
+            key: current segment
+            value: upstream segment(s), set of tuple or None
+        dict_miles: dictionary object storing distance of segments
+            key: current segment
+            value: distance in miles
+        d: range
+
+    OUTPUT
+        dict_upstream_within_range: dictionary object storing upstream segments within range
+            key: current segment
+            value: upstream segment(s), set of tuple or None 
+
+    '''
+    if source not in dict_prev or d <= 0:
+        # if source does not have immediate previous neighbor segment
+        # or if the range requested is not positive
+        return None
+
+    if source in dict_upstream_within_range:
+        if dict_upstream_within_range[source] is None:
+            return None
+
+        result = set()
+        for upstream in dict_upstream_within_range[source]:
+            r = d
+            temp_result = []
+            i = 0
+            while r >= 0 and i < len(upstream):
+                temp_result.append(upstream[i])
+                r -= dict_miles[upstream[i]]
+                i += 1
+            result.add(tuple(temp_result))
+        return result
+                
+    else:
+        # if source does have one or more immediate previous neighbor segment
+        result = set()
+
+        # for each immediate previous neighbor p, compute the upstream of p, and prepend source into each of the upstream path
+        for p in dict_prev[source]:
+            if d <= dict_miles[p] or p not in dict_prev:
+                result.add(tuple([p]))
+            else:
+                prev_result = compute_upstream_within_range(p, dict_prev, dict_upstream_within_range, dict_miles, d-dict_miles[p])
+                if prev_result is None or len(prev_result) == 0: 
+                    # if the upstream of previous neighbor is None or empty set
+                    result.add(tuple([p]))
+                else:
+                    for r in prev_result:
+                        if p not in r:
+                            # no circles are allowed 
+                            result.add(tuple([p]+list(r)))
+        return result
+
+
+def convert_dict_upstream_to_dict_upstream_set(dict_upstream, set_segments):
+    dict_upstream_set = {}
+    for seg in tqdm(list(set_segments)):
+        seg_upstream_list = []
+        if dict_upstream[seg] is not None:
+            for upstream in dict_upstream[seg]:
+                seg_upstream_list += list(upstream)
+            dict_upstream_set[seg] = set(seg_upstream_list)
+        else:
+            dict_upstream_set[seg] = None
+    return dict_upstream_set
 
 
 '''
