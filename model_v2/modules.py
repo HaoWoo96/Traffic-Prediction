@@ -16,23 +16,25 @@ class InputProcessing(nn.Module):
     def __init__(self, input_size, output_size, dropout_prob, device):
         super(InputProcessing, self).__init__()
 
-        # For self.input_processing, one ordinary MLP layer module seems sufficient (nn.Linear + nn.BatchNorm1d + nn.ReLU + nn.Dropout)
-        # In fact, it performs better than multiple layers of nn.Linear + nn.ReLU
         self.linear = nn.Linear(input_size, output_size)
-        self.b_norm = nn.BatchNorm1d(num_features=output_size, device=device)
+        self.b_norm_1d = nn.BatchNorm1d(num_features=output_size, device=device)
+        self.b_norm_2d = nn.BatchNorm2d(num_features=output_size, device=device)
         self.activation = nn.ReLU()
         self.dropout = nn.Dropout(dropout_prob)
 
     def forward(self, x):
         '''
         INPUT
-            x: input, (batch_size, seq_len_in, input_size)
+            x: input, (batch_size, seq_len_in, input_size) or (batch_size, seq_len_in, num_node, input_size)
         
         OUTPUT
-            output: (batch_size, seq_len_in, output_size)
+            output: (batch_size, seq_len_in, output_size) or (batch_size, seq_len_in, num_node, output_size)
 
         '''
-        output = self.dropout(self.activation(torch.transpose(self.b_norm(torch.transpose(self.linear(x), 1, 2)), 1, 2))) # (batch_size, seq_len_in, output_size)
+        if len(x.shape) == 3:
+            output = self.dropout(self.activation(torch.transpose(self.b_norm_1d(torch.transpose(self.linear(x), 1, 2)), 1, 2))) # (batch_size, seq_len_in, output_size)
+        else:
+            output = self.dropout(self.activation(torch.permute(self.b_norm_2d(torch.permute(self.linear(x), (0,3,1,2))), (0,2,3,1)))) # (batch_size, seq_len_in, num_node, output_size)
         return output
 
 
@@ -79,9 +81,19 @@ class EncoderRNN(nn.Module):
         # self.incident_start, self.incident_end = args.incident_indices  # starting and ending indices of categorical features (incident)
         # self.incident_embedding = nn.Embedding(num_embeddings=args.incident_range, embedding_dim=args.incident_embed_dim)
 
-        # For self.input_processing, one ordinary MLP layer module seems sufficient (nn.Linear + nn.BatchNorm1d + nn.ReLU + nn.Dropout)
-        # In fact, it performs better than multiple layers of nn.Linear + nn.ReLU
-        self.input_processing = InputProcessing(input_size=args.dim_in, output_size=args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device)
+        if args.county == "Cranberry":
+            # In the case of Cranberry county,
+            # For self.input_processing, one ordinary MLP layer module seems sufficient (nn.Linear + nn.BatchNorm1d + nn.ReLU + nn.Dropout)
+            # In fact, it performs better than multiple layers of nn.Linear + nn.ReLU
+            self.input_processing = InputProcessing(input_size=args.dim_in, output_size=args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device)
+        else:
+            input_processing_list = [
+                InputProcessing(input_size=args.dim_in, output_size=4*args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+                InputProcessing(input_size=4*args.dim_hidden, output_size=2*args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+                InputProcessing(input_size=2*args.dim_hidden, output_size=args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device)
+            ]
+            self.input_processing = nn.Sequential(*input_processing_list)
+
 
         self.gru = nn.GRU(input_size=args.dim_hidden, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
 
@@ -122,7 +134,7 @@ class DecoderRNN(nn.Module):
 
         self.gru = nn.GRU(input_size=args.dim_out, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
 
-        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207
+        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207; In case of TSMO, 1024 -> 1024 -> 583 -> 583
         # For self.out, adding normalization modules such as batch normalization and dropout won't help but undermine model performance 
         # Also, our input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
         self.output_processing = OutputProcessing([args.dim_hidden, args.dim_hidden, args.dim_hidden, args.dim_out, args.dim_out, args.dim_out])
@@ -169,7 +181,7 @@ class AttnDecoderRNN(nn.Module):
         super(AttnDecoderRNN, self).__init__()
         self.args = args
 
-        # self.dropout = nn.Dropout(self.dropout_p)
+        # self.dropout = nn.Dropout(self.dropout_prob)
         dim_out = args.dim_out
 
         self.attn_weight = nn.Linear(dim_out + args.dim_hidden, args.seq_len_in)
@@ -178,7 +190,7 @@ class AttnDecoderRNN(nn.Module):
         self.gru = nn.GRU(input_size=dim_out, hidden_size=args.dim_hidden, num_layers=args.num_layer_GRU, batch_first=True)
 
 
-        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207
+        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207; In case of TSMO, 1024 -> 1024 -> 583 -> 583
         # For self.out, adding normalization modules such as batch normalization and dropout won't help but undermine model performance 
         # Also, our input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
         self.output_processing = OutputProcessing([args.dim_hidden, args.dim_hidden, args.dim_hidden, args.dim_out, args.dim_out, args.dim_out])
@@ -304,7 +316,26 @@ class EncoderTrans(nn.Module):
         self.args = args
 
         # input processing
-        self.input_processing = InputProcessing(input_size=args.dim_in, output_size=args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device)
+        if args.county == "Cranberry":
+            # In the case of Cranberry county,
+            # For self.input_processing, one ordinary MLP layer module seems sufficient (nn.Linear + nn.BatchNorm1d + nn.ReLU + nn.Dropout)
+            # In fact, it performs better than multiple layers of nn.Linear + nn.ReLU
+            self.input_processing = InputProcessing(input_size=args.dim_in, output_size=args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device)
+        else:
+            input_processing_list = [
+                InputProcessing(input_size=args.dim_in, output_size=4*args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+                InputProcessing(input_size=4*args.dim_hidden, output_size=2*args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+                InputProcessing(input_size=2*args.dim_hidden, output_size=args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+
+                # InputProcessing(input_size=args.dim_in, output_size=8*args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+                # InputProcessing(input_size=8*args.dim_hidden, output_size=8*args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+                # InputProcessing(input_size=8*args.dim_hidden, output_size=4*args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+                # InputProcessing(input_size=4*args.dim_hidden, output_size=2*args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+                # InputProcessing(input_size=2*args.dim_hidden, output_size=args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device),
+                InputProcessing(input_size=args.dim_hidden, output_size=args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device)
+            ]
+            self.input_processing = nn.Sequential(*input_processing_list)
+
 
         # positional encoding
         self.pos_encoder_for_input = PosEmbed(args=args, input=True)
@@ -366,7 +397,7 @@ class DecoderTrans(nn.Module):
         self.mask = create_mask(num_row=args.seq_len_out, num_col=args.seq_len_out, device=args.device)  # size (seq_len_out, seq_len_out)
         #self.mask = torch.triu(torch.ones(args.seq_len_out, args.seq_len_out) * float('-inf'), diagonal=1).to(args.device)  
 
-        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207
+        # start from args.dim_hidden (256) -> 256 -> args.dim_out (207) -> 207; In case of TSMO, 1024 -> 1024 -> 583 -> 583
         # For self.out, adding normalization modules such as batch normalization and dropout won't help but undermine model performance 
         # Also, our input is 3-d tensor and nn.Batchnorm1d doesn't directly align with nn.Linear within nn.Sequential
         self.output_processing = OutputProcessing([args.dim_hidden, args.dim_hidden, args.dim_hidden, args.dim_out, args.dim_out, args.dim_out])
@@ -433,13 +464,12 @@ class SpatialModule(nn.Module):
         # self.gcn = GCN(args, args.dim_hidden, args.dim_hidden*2, args.dim_hidden, args.adj, args.cheb_k, args.dropout)
         self.gcn = GCNConv(in_channels=args.dim_hidden, out_channels=args.dim_hidden)  
 
-        self.dropout = nn.Dropout(p=args.dropout)
+        self.dropout = nn.Dropout(p=args.dropout_prob)
 
     def forward(self, x): 
         '''
         INPUTs
             x: node embedding (after input processing), size (batch_size, seq_len_in, num_node, dim_hidden)
-            adj: adjacency matrix, size (num_node, num_node)
 
         OUTPUT
             result: spatial embedding, size (batch_size, seq_len_in, num_node, dim_hidden)
@@ -463,13 +493,14 @@ class TemporalModule(nn.Module):
 
         # transformer encoder
         self.trans_encoder_layer = TransformerEncoderLayer(
-                                        d_model=args.num_node*args.dim_hidden, 
+                                        d_model=args.dim_hidden, 
                                         nhead=args.num_head, 
-                                        dropout=args.dropout,
+                                        dropout=args.dropout_prob,
                                         norm_first=True,
                                         batch_first=True
                                     ) # layer normalization should be first, otherwise the training will be very difficult
-        self.trans_encoder = TransformerEncoder(encoder_layer=self.trans_encoder_layers, num_layers=args.num_layer_Trans)
+        self.trans_encoder = TransformerEncoder(encoder_layer=self.trans_encoder_layer, num_layers=args.num_layer_Trans)
+        self.args = args
 
     def forward(self, x):
         '''
@@ -480,15 +511,15 @@ class TemporalModule(nn.Module):
             result: spatial-temporal embedding, size (batch_size, seq_len_in, num_node, dim_hidden)
         '''
         batch_size, seq_len_in, num_node, dim_hidden = x.shape
-        swapped_x = x.swapaxes(1, 2)  # (batch_size, num_node, seq_len_in, dim_hidden)
 
         # Avoid original feature embedding overshadowed by positional embedding
         # More info: # https://datascience.stackexchange.com/questions/87906/transformer-model-why-are-word-embeddings-scaled-before-adding-positional-encod/87909#87909
-        processed_input = swapped_x * math.sqrt(self.args.dim_hidden) 
-        pos_input = self.pos_encoder_for_input(processed_input)  # (batch_size, num_node, seq_len_in, dim_hidden)
+        processed_input = x * math.sqrt(self.args.dim_hidden) 
+        pos_input = self.pos_encoder_for_input(processed_input)  # (batch_size, seq_len_in, num_node, dim_hidden)
 
         # transformer encoder expect 2D tensor or 3D batched-tensor, therefore here we merge batch and node dimension into the first dimension
-        result = self.trans_encoder(pos_input.view(-1, seq_len_in, dim_hidden))  # (batch_size*num_node, seq_len_in, dim_hidden)
+        swapped_pos_input = pos_input.swapaxes(1,2) # (batch_size, num_node, seq_len_in, dim_hidden)
+        result = self.trans_encoder(swapped_pos_input.reshape(-1, seq_len_in, dim_hidden))  # (batch_size*num_node, seq_len_in, dim_hidden)
         result = result.reshape(batch_size, num_node, seq_len_in, dim_hidden).swapaxes(1, 2)  # (batch_size, seq_len_in, num_node, dim_hidden)
         return result
         
@@ -499,7 +530,7 @@ class STBlock(nn.Module):
         super(STBlock, self).__init__()
         self.spatial_module = SpatialModule(args)
         self.temporal_module = TemporalModule(args)
-        self.dropout = nn.Dropout(p=args.dropout)
+        self.dropout = nn.Dropout(p=args.dropout_prob)
         self.layer_norm = nn.LayerNorm(normalized_shape=args.dim_hidden)
     
     def forward(self, x):
@@ -531,7 +562,7 @@ class EncoderGTrans(nn.Module):
         self.input_processing = InputProcessing(input_size=args.dim_in, output_size=args.dim_hidden, dropout_prob=args.dropout_prob, device=args.device)
 
         # spatial-temporal block
-        self.st_blocks = nn.Sequential(*[STBlock(args=args) for _ in args.num_STBlock])
+        self.st_blocks = nn.Sequential(*[STBlock(args=args) for _ in range(args.num_STBlock)])
     
     def forward(self, x):
         '''
@@ -591,13 +622,14 @@ class DecoderGTrans(nn.Module):
     def forward(self, target, memory, mode):
         '''
         INPUTs
-            target: target, (batch_size, seq_len_out+1, num_node, dim_out)
+            target: target, (batch_size, seq_len_out+1, num_node)
             memory: latent representation after transformer encoder, (batch_size, seq_len_in, num_node, dim_hidden)
             mode: string of value "train" or "eval", denoting the mode to control decoder
             
         OUTPUTs
             output: (batch_size, seq_len_out, num_node, dim_out)
         '''
+        target = target.unsqueeze(3)
         batch_size, seq_len_out, num_node, dim_out = target.size()
         seq_len_out -= 1
         dim_hidden = memory.size(-1)
@@ -612,30 +644,30 @@ class DecoderGTrans(nn.Module):
             processed_tgt = processed_tgt * math.sqrt(self.args.dim_hidden) 
             pos_tgt = self.pos_encoder_for_output(processed_tgt)
 
-            output = self.trans_decoder(tgt=pos_tgt.swapaxes(1,2).view(-1, num_node, dim_hidden), memory=memory, tgt_mask=self.mask)  # (batch_size*num_node, seq_len_out, dim_hidden)
-            output = output.swapaxes(1,2).reshape(batch_size, seq_len_out, num_node, dim_hidden)  # (batch_size, seq_len_out, num_node, dim_hidden)
-            processed_out = self.output_processing(output)
+            output = self.trans_decoder(tgt=pos_tgt.swapaxes(1,2).reshape(batch_size*num_node, seq_len_out, dim_hidden), memory=memory.swapaxes(1,2).reshape(batch_size*num_node, -1, dim_hidden), tgt_mask=self.mask)  # (batch_size*num_node, seq_len_out, dim_hidden)
+            output = output.reshape(batch_size, num_node, seq_len_out, dim_hidden).swapaxes(1,2) # (batch_size, seq_len_out, num_node, dim_hidden)
+            processed_out = self.output_processing(output) # (batch_size, seq_len_out, num_node, dim_out=1)
         
         else:
             prediction = target[:, 0, :, :].unsqueeze(1).detach()  # (batch_size, 1, num_node, dim_out)
 
             for i in range(self.args.seq_len_out):
                 processed_tgt = self.input_processing(prediction)  # (batch_size, i+1, num_node, dim_hidden)
-                temp_pred = self.trans_decoder(tgt=processed_tgt.swapaxes(1,2).view(-1, self.args.num_node, self.args.dim_hidden), memory=memory, tgt_mask=create_mask(num_row=processed_tgt.size(1), num_col=processed_tgt.size(1), device=self.args.device))  # (batch_size*num_node, i+1, dim_hidden)
-                temp_pred = temp_pred.swapaxes(1,2).reshape(batch_size, seq_len_out, num_node, dim_hidden)  # (batch_size, i+1, num_node, dim_hidden)
+                temp_pred = self.trans_decoder(tgt=processed_tgt.swapaxes(1,2).reshape(batch_size*num_node, -1, dim_hidden), memory=memory.swapaxes(1,2).reshape(batch_size*num_node, -1, dim_hidden), tgt_mask=create_mask(num_row=processed_tgt.size(1), num_col=processed_tgt.size(1), device=self.args.device))  # (batch_size*num_node, i+1, dim_hidden)
+                temp_pred = temp_pred.reshape(batch_size, num_node, -1, dim_hidden).swapaxes(1,2)  # (batch_size, i+1, num_node, dim_hidden)
                 processed_pred = self.output_processing(temp_pred)  # (batch_size, i+1, num_node, dim_out)
-                prediction = torch.concat((prediction, processed_pred[:, -1, :].unsqueeze(1)), 1).detach()  # (batch_size, i+2, num_node, dim_out), use prediction as next input, detach from history
+                prediction = torch.concat((prediction, processed_pred[:, -1, ...].unsqueeze(1)), 1).detach()  # (batch_size, i+2, num_node, dim_out), use prediction as next input, detach from history
             
             # processed_out = prediction[:, 1:, :]
-            processed_tgt = self.input_processing(prediction[:, :self.args.seq_len_out, :]) # (batch_size, seq_len_out, num_node, dim_hidden)
+            processed_tgt = self.input_processing(prediction[:, :self.args.seq_len_out, ...]) # (batch_size, seq_len_out, num_node, dim_hidden)
 
             # Avoid original feature embedding overshadowed by positional embedding
             # More info: # https://datascience.stackexchange.com/questions/87906/transformer-model-why-are-word-embeddings-scaled-before-adding-positional-encod/87909#87909
             processed_tgt = processed_tgt * math.sqrt(self.args.dim_hidden) 
-            pos_tgt = self.pos_encoder_for_output(processed_tgt)
+            pos_tgt = self.pos_encoder_for_output(processed_tgt)  # (batch_size, seq_len_out, num_node, dim_hidden)
 
-            output = self.trans_decoder(tgt=pos_tgt.swapaxes(1,2).view(-1, num_node, dim_hidden), memory=memory, tgt_mask=self.mask)  # (batch_size*num_node, seq_len_out, dim_hidden)
-            output = output.swapaxes(1,2).reshape(batch_size, seq_len_out, num_node, dim_hidden)  # (batch_size, seq_len_out, num_node, dim_hidden)
-            processed_out = self.output_processing(output)
+            output = self.trans_decoder(tgt=pos_tgt.swapaxes(1,2).reshape(-1, seq_len_out, dim_hidden), memory=memory.swapaxes(1,2).reshape(batch_size*num_node, -1, dim_hidden), tgt_mask=self.mask)  # (batch_size*num_node, seq_len_out, dim_hidden)
+            output = output.reshape(batch_size, num_node, seq_len_out, dim_hidden).swapaxes(1,2)  # (batch_size, seq_len_out, num_node, dim_hidden)
+            processed_out = self.output_processing(output) # (batch_size, seq_len_out, num_node, dim_out=1)
 
-        return processed_out
+        return processed_out.squeeze() # (batch_size, seq_len_out, num_node)

@@ -13,16 +13,16 @@ class TrafficData(Dataset):
     def __init__(self, args):
         self.args = args  
         
-        X_path = f"{self.args.data_dir}/np_in_5min.npy"  # sequence features of TMC segments in frequency of 5 min
-        Y_path = f"{self.args.data_dir}/np_out_5min.npy"  # ground truth of TMC speed & incident data in frequency of 5 min
-        waze_inc_path = f"{self.args.data_dir}/np_waze_5min_207.npy"  # ground truth of Waze incident data in frequency of 5 min, used to evaluation ONLY
+        if args.model_type == "GTrans":
+            X_path = f"{self.args.data_dir}/{self.args.county}/{self.args.county}_np_in_node_embedding_5min.npy"  # sequence features of TMC segments in frequency of 5 min
+        else:
+            X_path = f"{self.args.data_dir}/{self.args.county}/{self.args.county}_np_in_5min.npy"  # sequence features of TMC segments in frequency of 5 min
+        Y_path = f"{self.args.data_dir}/{self.args.county}/{self.args.county}_np_out_5min.npy"  # ground truth of TMC speed & incident data in frequency of 5 min
 
-        self.all_X = torch.from_numpy(np.load(X_path)).float()  # (21060, feat_dim)
-        self.waze_inc = torch.from_numpy(np.load(waze_inc_path)).float()  # (21060, feat_dim)
+        self.all_X = torch.from_numpy(np.load(X_path)).float()  # (21060 or 46800, dim_in) used for non-graphical model, or (21060 or 46800, num_node, dim_in) used for G-Transformer
 
-        # (21060, num_seg, 5) the last dimension refers to 1. speed of all vehicles, 2. speed of truck, 3. speed of personal vehicles, 4. incident status (for training), 5. Waze incident status (for evaluation)
+        # (21060 or 46800, num_seg, 5) the last dimension refers to 1. speed of all vehicles, 2. speed of truck, 3. speed of personal vehicles, 4. incident status (for training), 5. Waze incident status (for evaluation)
         self.Y = torch.from_numpy(np.load(Y_path)).float() 
-        self.Y = torch.concat([self.Y, self.waze_inc.unsqueeze(-1)], dim=-1)
 
         # change input based on whether to use new features or not
         new_feat_indices = []
@@ -35,9 +35,9 @@ class TrafficData(Dataset):
         if args.use_spd_pv:
             new_feat_indices.append(args.indices_spd_pv)
         
-        self.X = self.all_X[:, args.indices_spd_pv[1]:]  # (21060, 642)
+        self.X = self.all_X[..., args.indices_spd_pv[1]:] 
         for i, j in new_feat_indices:
-            self.X = torch.cat([self.all_X[:, i:j], self.X], axis=1)
+            self.X = torch.cat([self.all_X[..., i:j], self.X], axis=-1)
         
     def __len__(self):
         return self.X.size(0) 
@@ -87,21 +87,12 @@ def get_data_loader(args):
     return train_dloader, val_dloader, test_dloader
 
 
-def get_inference_data_loader(args):
-    """
-    Creates data loader for model inference
-    """
-    whole_dataset = TrafficData(args=args)
-    whole_dloader = DataLoader(dataset=whole_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
+def get_edge_idx(args):
+    '''
+    Load adjacency matrix for G-Transformer
+    '''
 
-    return whole_dloader
+    path = f"{args.data_dir}/{args.county}/{args.county}_np_edge_idx.npy"  # path to adjacency matrix 
+    edge_idx = torch.from_numpy(np.load(path)).type(dtype=torch.int64)  # square matrix of adjacency relationship
 
-def get_sorted_inference_data_loader(args):
-    """
-    FUNCTION:
-        Creates data loader for model inference
-        Output is sorted by time 
-
-    OUTPUT:
-        sorted_infer_dataloader
-    """
+    return edge_idx

@@ -6,12 +6,13 @@ import logging
 import os
 import pickle
 import sys
+import gc
 
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime as dt
 
 from models import *
-from data_loader import get_data_loader
+from data_loader import get_data_loader, get_edge_idx
 from utils import seed_torch, compute_train_time, save_checkpoint, create_dir, log_train_meta
 
 ########################################
@@ -161,7 +162,7 @@ def main(args):
         elif args.model_type == "Trans":
             model = TransNoFact(args).to(args.device)
         else:
-            model = GTransFact(args).to(args.device)
+            model = GTransNoFact(args).to(args.device)
     elif args.task == "naive":
         if args.model_type == "Seq2Seq":
             model = Seq2SeqFactNaive(args).to(args.device)
@@ -181,6 +182,7 @@ def main(args):
             model = TransFact(args).to(args.device)
         else:
             model = GTransFact(args).to(args.device)
+    
 
     # 4. Set up Optimizer and LR Scheduler
     # opt = optim.Adam(model.parameters(), args.lr, betas=(0.9, 0.999))
@@ -262,6 +264,8 @@ def main(args):
         model.rec_decoder.requires_grad_(False)
 
     # 7. Load Data for Training & Testing
+    if args.model_type == "GTrans":
+        args.edge_idx = get_edge_idx(args).to(args.device)
     train_dataloader, val_dataloader, test_dataloader = get_data_loader(args=args)
     logging.info(f"successfully loaded data \n")
 
@@ -329,7 +333,7 @@ def create_parser():
     parser = argparse.ArgumentParser()
 
     # 1. Model hyper-parameters
-    parser.add_argument('--model_type', type=str, help="Choose one from 'Seq2Seq', 'Trans', 'STGCN'")
+    parser.add_argument('--model_type', type=str, help="Choose one from 'Seq2Seq', 'Trans', 'GTrans'")
 
     parser.add_argument('--dim_hidden', type=int, default=256, help='Hidden dimension in encoder and decoder')
     parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='threshold of teacher forcing')
@@ -341,7 +345,7 @@ def create_parser():
     # Trans & GTrans
     parser.add_argument('--num_head', type=int, default=8, help='Number of heads in a transformer encoder/decoder layer')
     parser.add_argument('--num_layer_Trans', type=int, default=2, help='Number of transformer encoder/decoder layers')
-    parser.add_argument('--num_STBlock', type=int, default=3, help='Number of spatial-temporal blocks')
+    parser.add_argument('--num_STBlock', type=int, default=1, help='Number of spatial-temporal blocks')
 
     parser.add_argument('--seq_len_in', type=int, default=7, help='sequence length of input')
     parser.add_argument('--seq_len_out', type=int, default=6, help='sequence length of output')
@@ -357,16 +361,17 @@ def create_parser():
     # 2. Data Hyper-parameters
     parser.add_argument('--data_train_ratio', type=float, default=0.7, help='Ratio of training data versus whole data')
     parser.add_argument('--data_val_ratio', type=float, default=0.2, help='Ratio of validation data versus whole data')
-    parser.add_argument('--seed', type=int, default=912, help='Seed for random splitting')
+    parser.add_argument('--seed', type=int, default=912)
     # parser.add_argument('--gt_type', type=str, default="tmc", help='ground truth speed type, "tmc" or "xd"')
 
     parser.add_argument('--dim_in', type=int, default=1470, help='dimension of input')
     parser.add_argument('--dim_out', type=int, default=207, help=' dimension of output i.e. number of segments (207 by default)')
+    parser.add_argument('--num_node', type=int, default=207, help='number of nodes (207 by default) as used in GTrans')
 
-    parser.add_argument('--indices_dens', type=list or tuple, default = [0, 207], help='[start_idx, end_idx], indices of density features')
-    parser.add_argument('--indices_spd_all', type=list or tuple, default = [207, 414], help='[start_idx, end_idx], indices of speed features')
-    parser.add_argument('--indices_spd_truck', type=list or tuple, default = [414, 621], help='[start_idx, end_idx], indices of truck speed')
-    parser.add_argument('--indices_spd_pv', type=list or tuple, default = [621, 828], help='[start_idx, end_idx], indices of personal vehicle speed')
+    # parser.add_argument('--indices_dens', type=list or tuple, default = [0, 207], help='[start_idx, end_idx], indices of density features')
+    # parser.add_argument('--indices_spd_all', type=list or tuple, default = [207, 414], help='[start_idx, end_idx], indices of speed features')
+    # parser.add_argument('--indices_spd_truck', type=list or tuple, default = [414, 621], help='[start_idx, end_idx], indices of truck speed')
+    # parser.add_argument('--indices_spd_pv', type=list or tuple, default = [621, 828], help='[start_idx, end_idx], indices of personal vehicle speed')
     # parser.add_argument('--indices_inc', type=list or tuple, default = [1035, 1242], help='[start_idx, end_idx], indices of incident status features')
     
     parser.add_argument('--use_dens', action="store_true", help='use density features or not')
@@ -383,6 +388,7 @@ def create_parser():
     # parser.add_argument('--numeric_feat_dim', type=int, help='length of numercial features')
 
     # 3. Training Hyper-parameters
+    parser.add_argument('--county', type=str, default="Cranberry", help="Choose one from 'Cranberry', 'TSMO'")
     '''
     TASKs:
         1. "LR": call train_LR() for logistic regression, train encoder and LR_decoder
@@ -421,7 +427,9 @@ def create_parser():
 
 
 if __name__ == '__main__':
-    
+    gc.collect()
+    torch.cuda.empty_cache()  # empty cached CUDA memory
+
     # 1. Modify Arguments
     parser = create_parser()
     args = parser.parse_args()
@@ -430,9 +438,21 @@ if __name__ == '__main__':
     # For reproducibility
     seed_torch(args.seed)
 
+    # Modify Data & Model Hyper-parameters If Needed for Different Counties
+    if args.county == "TSMO":
+        if args.model_type == "GTrans":
+            args.dim_in = 25
+            args.dim_hidden = 32
+            args.dim_out = 1
+            args.num_node = 583
+        else:
+            args.dim_in = 4099
+            args.dim_out = 583
+        args.LR_pos_weight = 0.2442
+
     # Task specific directories
-    args.log_dir += f"/{args.task}"
-    args.checkpoint_dir += f"/{args.task}" 
+    args.log_dir += f"/{args.county}/{args.task}"
+    args.checkpoint_dir += f"/{args.county}/{args.task}" 
 
     args.exp_name = args.model_type
     args.exp_name += f"_{str(args.use_dens)[0]}_{str(args.use_spd_all)[0]}_{str(args.use_spd_truck)[0]}_{str(args.use_spd_pv)[0]}_{args.seq_len_in}_{args.seq_len_out}_{args.freq_out}_hidden_{args.dim_hidden}_batch_{args.batch_size}_lr_{args.lr}_{str(args.use_expectation)[0]}" 
@@ -441,16 +461,22 @@ if __name__ == '__main__':
 
     if args.load_checkpoint_epoch > 0:
         args.load_checkpoint = f"epoch_{args.load_checkpoint_epoch}_{args.exp_name}"
-
+    
     # Change input dimension based on task type and whether to use new features or not
     if not args.use_dens:
-        args.dim_in -= 207 
+        args.dim_in -= args.dim_out 
     if not args.use_spd_all:
-        args.dim_in -= 207
+        args.dim_in -= args.dim_out
     if not args.use_spd_truck:
-        args.dim_in -= 207
+        args.dim_in -= args.dim_out
     if not args.use_spd_pv:
-        args.dim_in -= 207
+        args.dim_in -= args.dim_out
+    
+    # Indices of various input features
+    args.indices_dens = [0, args.dim_out]
+    args.indices_spd_all = [args.dim_out, 2*args.dim_out]
+    args.indices_spd_truck = [2*args.dim_out, 3*args.dim_out]
+    args.indices_spd_pv = [3*args.dim_out, 4*args.dim_out]
 
     # 2. Execute Training Pipeline
     main(args)

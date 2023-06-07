@@ -54,6 +54,16 @@ class Seq2SeqFact(nn.Module):
         self.encoder = EncoderRNN(args=args)
         self.inc_activation = nn.Sigmoid()
 
+        # For weight computation in final speed prediction
+        # Option 2.1 - Learnable rec_weight and nonrec_weight
+        self.sum_weight = nn.Parameter(data=torch.tensor(1.0))
+
+        # Option 2.2 - MLP (doesn't perform as well as Option 1)
+        # self.out_processing = OutputProcessing(dim_list=[2,16,16,32,32,16,16,1]) 
+
+        # Option 3 - Theshold of Incident Prediction
+        self.threshold = torch.nn.Threshold(threshold=-0.5, value=-1.0)
+
         self.LR_decoder = AttnDecoderRNN(args=args)  # decoder for incident prediction (logistic regression)
         self.rec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in recurrent scenario
         self.nonrec_decoder = AttnDecoderRNN(args=args)  # decoder for speed prediction in non-recurrent scenario
@@ -92,23 +102,42 @@ class Seq2SeqFact(nn.Module):
             return self.nonrec_decoder(target[..., 0], enc_hidden, enc_out, mode)
         else:
             LR_out, LR_hidden, LR_attn_weights = self.LR_decoder(target[..., 3], enc_hidden, enc_out, mode)
-            inc_pred = self.inc_activation(LR_out)
+            inc_pred = self.inc_activation(LR_out)  # convert logits to probabilities
             rec_out, rec_hidden, rec_attn_weights = self.rec_decoder(target[..., 0], enc_hidden, enc_out, mode)
             nonrec_out, nonrec_hidden, nonrec_attn_weights = self.nonrec_decoder(target[..., 0], enc_hidden, enc_out, mode)
 
             # generate final speed prediction
             if self.args.use_gt_inc:
+                # Option 1 - Use Threshold for Incident Ground Truth (for inference ONLY)
                 rec_weight = target[:, 1:, :, 3] < 0.5
                 nonrec_weight = target[:, 1:, :, 3] >= 0.5
             else:
+                # Option 2 - Use Expectation
                 if self.args.use_expectation:
-                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - inc_pred
-                    nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight
+                    # Option 2.1 - Learnable rec_weight and nonrec_weight
+                    nonrec_weight = torch.clamp(self.sum_weight * inc_pred, 0, 1) # torch.clamp ensures weights are within [0,1]
+                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - nonrec_weight
+
+                    # For Option 2.2 - MLP
+                    # nonrec_weight = inc_pred
+                    # rec_weight = torch.ones(LR_out.size()).to(self.args.device) - nonrec_weight
+                
+                # Option 3 - Use Threshold for Incident Prediction
                 else:
-                    rec_weight = inc_pred < self.args.inc_threshold
+                    # The following 2 lines of code are not differentiable, therefore failing to update inc_pred through MSE loss of speed_pred.
+                    rec_weight = inc_pred < self.args.inc_threshold 
                     nonrec_weight = inc_pred >= self.args.inc_threshold
 
+                    # The following 2 lines of commented code are differentiable, but in fact generates the exact same result as above two lines of code do.
+                    # rec_weight = torch.clamp(self.threshold(-inc_pred)+1, max=0.5)*2   # generate 0-1 mask as what "inc_pred < self.args.inc_threshold" does
+                    # nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight  # generate 0-1 mask as what "inc_pred >= self.args.inc_threshold" does
+
+
             speed_pred = rec_out * rec_weight + nonrec_out * nonrec_weight
+
+            # For Expectation Option 2 - MLP
+            # intermediate_spd_pred = torch.stack(tensors=[rec_out * rec_weight, nonrec_out * nonrec_weight], dim=-1)
+            # speed_pred = self.out_processing(intermediate_spd_pred).view(intermediate_spd_pred.shape[:3])
             
             return speed_pred, LR_out, [LR_attn_weights, rec_attn_weights, nonrec_attn_weights]
 
@@ -270,9 +299,21 @@ class TransFact(nn.Module):
         self.encoder = EncoderTrans(args=args)
         self.inc_activation = nn.Sigmoid()
 
+        # For weight computation in final speed prediction
+        # Option 2.1 - Learnable rec_weight and nonrec_weight
+        self.sum_weight = nn.Parameter(data=torch.tensor(1.0))
+
+        # Option 2.2 - MLP (doesn't perform as well as Option 1)
+        # self.out_processing = OutputProcessing(dim_list=[2,16,16,32,32,16,16,1]) 
+
+        # Option 3 - Theshold of Incident Prediction
+        self.threshold = torch.nn.Threshold(threshold=-0.5, value=-1.0)
+
         self.LR_decoder = DecoderTrans(args=args)  # decoder for incident prediction (logistic regression)
         self.rec_decoder = DecoderTrans(args=args)  # decoder for speed prediction in recurrent scenario
         self.nonrec_decoder = DecoderTrans(args=args)  # decoder for speed prediction in non-recurrent scenario
+
+        self.args = args
     
     def forward(self, x, target, mode):
         '''
@@ -294,30 +335,49 @@ class TransFact(nn.Module):
         xxx_dec_out: (batch_size, seq_len_out, dim_out)  
         '''
         if self.args.task == "LR":
-            return self.LR_decoder(target[..., 3], enc_out, mode), 0, 0
+            return self.LR_decoder(target[..., 3], enc_out, mode), 0, 0 # Be careful! LR_out hasn't gone through nn.Sigmoid and doesn't denote the probability
         elif self.args.task == "rec":
             return self.rec_decoder(target[..., 0], enc_out, mode), 0, 0
         elif self.args.task == "nonrec":
             return self.nonrec_decoder(target[..., 0], enc_out, mode), 0, 0
         else:
             LR_out = self.LR_decoder(target[..., 3], enc_out, mode)
-            inc_pred = self.inc_activation(LR_out)
+            inc_pred = self.inc_activation(LR_out) # convert logits to probabilities
             rec_out = self.rec_decoder(target[..., 0], enc_out, mode)
             nonrec_out = self.nonrec_decoder(target[..., 0], enc_out, mode)
 
             # generate final speed prediction
             if self.args.use_gt_inc:
+                # Option 1 - Use Threshold for Incident Ground Truth (for inference ONLY)
                 rec_weight = target[:, 1:, :, 3] < 0.5
                 nonrec_weight = target[:, 1:, :, 3] >= 0.5
             else:
+                # Option 2 - Use Expectation
                 if self.args.use_expectation:
-                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - inc_pred
-                    nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight
+                    # Option 2.1 - Learnable rec_weight and nonrec_weight
+                    nonrec_weight = torch.clamp(self.sum_weight * inc_pred, 0, 1) # torch.clamp ensures weights are within [0,1]
+                    rec_weight = torch.ones(LR_out.size()).to(self.args.device) - nonrec_weight
+
+                    # For Option 2.2 - MLP
+                    # nonrec_weight = inc_pred
+                    # rec_weight = torch.ones(LR_out.size()).to(self.args.device) - nonrec_weight
+                
+                # Option 3 - Use Threshold for Incident Prediction
                 else:
-                    rec_weight = inc_pred < self.args.inc_threshold
+                    # The following 2 lines of code are not differentiable, therefore failing to update inc_pred through MSE loss of speed_pred.
+                    rec_weight = inc_pred < self.args.inc_threshold 
                     nonrec_weight = inc_pred >= self.args.inc_threshold
 
+                    # The following 2 lines of commented code are differentiable, but in fact generates the exact same result as above two lines of code do.
+                    # rec_weight = torch.clamp(self.threshold(-inc_pred)+1, max=0.5)*2   # generate 0-1 mask as what "inc_pred < self.args.inc_threshold" does
+                    # nonrec_weight = torch.ones(LR_out.size()).to(self.args.device) - rec_weight  # generate 0-1 mask as what "inc_pred >= self.args.inc_threshold" does
+
+
             speed_pred = rec_out * rec_weight + nonrec_out * nonrec_weight
+
+            # For Expectation Option 2 - MLP
+            # intermediate_spd_pred = torch.stack(tensors=[rec_out * rec_weight, nonrec_out * nonrec_weight], dim=-1)
+            # speed_pred = self.out_processing(intermediate_spd_pred).view(intermediate_spd_pred.shape[:3])
             
             return speed_pred, LR_out, 0
 
@@ -384,7 +444,7 @@ class TransFactNaive(nn.Module):
 # 3.1 GCN-Transformer Model without Factorization
 class GTransNoFact(nn.Module):
     def __init__(self, args):
-        super(TransNoFact, self).__init__()
+        super(GTransNoFact, self).__init__()
         self.encoder = EncoderGTrans(args)
         self.decoder = DecoderGTrans(args)
         self.args = args
@@ -402,13 +462,13 @@ class GTransNoFact(nn.Module):
         enc_out = self.encoder(x)  # (batch_size, seq_len_in, dim_hidden)
         dec_out = self.decoder(target[..., 0], enc_out, mode)
 
-        return dec_out
+        return dec_out, 0, 0
 
 
 # 3.2 GCN-Transformer Model with Factorization
 class GTransFact(nn.Module):
     def __init__(self, args):
-        super(TransFact, self).__init__()
+        super(GTransFact, self).__init__()
         self.args = args
         self.inc_activation = nn.Sigmoid()
         self.encoder = EncoderGTrans(args=args)
@@ -462,4 +522,4 @@ class GTransFact(nn.Module):
 
             speed_pred = rec_out * rec_weight + nonrec_out * nonrec_weight
             
-            return speed_pred, LR_out
+            return speed_pred, LR_out, 0
